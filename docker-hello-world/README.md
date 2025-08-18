@@ -1,4 +1,4 @@
-# My First Docker Project 🐳
+# My First Docker Project
 
 A simple containerized web application that demonstrates the basics of Docker by serving a static HTML website using nginx. I used Claude to create a simple backend webserver and HTML/CSS for the front end for me to test my docker file. I did the rest myself.
 
