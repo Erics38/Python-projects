@@ -8,7 +8,8 @@ This was my first time working with Nginx and I can see how it can be used to bu
 To make adjustments to the code in the container, the current container must be stopped and and new one created with the changes. This is what immutable means
 
 
-Used: 
+Used:
+
 FROM: nginx:alpine is the official image for Nginx. This is what allowed me to use HTTP and build a frontend to show that I successfully created a docker file
 
 COPY: Brings in the CSS and HTTPS.
