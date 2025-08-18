@@ -48,13 +48,13 @@ docker run -p 8080:80 my-first-docker-app
 
 ## What I Learned
 
-✅ How to create a Dockerfile from scratch  
-✅ Understanding base images and layers  
-✅ Copying files into containers  
-✅ Port mapping between host and container  
-✅ Using nginx to serve static content  
-✅ Docker build and run commands  
-✅ Container lifecycle management  
+ How to create a Dockerfile from scratch  
+ Understanding base images and layers  
+ Copying files into containers  
+ Port mapping between host and container  
+ Using nginx to serve static content  
+ Docker build and run commands  
+ Container lifecycle management  
 
 ## How to Run This Project
 
