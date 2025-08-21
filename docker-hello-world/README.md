@@ -49,7 +49,7 @@ docker-hello-world/
 
 ### 3. Key Docker Commands Used
 ```bash
-# Build the Docker image
+# Build the Docker image (DONT FORGET ".")
 docker build -t my-first-docker-app .
 
 # Run the container with port mapping. run is to start it, -d is to have it run in the background so you can continue to use the same terminal,
