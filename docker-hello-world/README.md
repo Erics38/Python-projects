@@ -52,8 +52,20 @@ docker-hello-world/
 # Build the Docker image
 docker build -t my-first-docker-app .
 
-# Run the container with port mapping
-docker run -p 8080:80 my-first-docker-app
+# Run the container with port mapping. run is to start it, -d is to have it run in the background so you can continue to use the same terminal,
+# -p to tell what port to look for. name of the image
+docker run -d -p 8080:80 my-first-docker-app
+
+# Find the name of the container and make sure it is running. You will need to have the name of the container handy for when you want to stop it/remove it later.
+docker ps
+
+# stop the docker container
+docker stop (incert generated container name)
+
+# delete the docker container
+docker rm (insert gernerated container name)
+
+
 ```
 
 ### 4. Version Control
