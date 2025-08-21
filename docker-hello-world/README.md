@@ -89,7 +89,7 @@ docker rm (insert gernerated container name)
 
 3. **Build the image**:
    ```bash
-   docker build -t my-first-docker-app .
+   docker build -d -t my-first-docker-app .
    ```
 
 4. **Run the container**:
