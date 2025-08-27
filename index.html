@@ -19,6 +19,68 @@
                 <li>Mapped ports to access your site</li>
             </ul>
         </div>
+        
+        <div class="guestbook">
+            <h2>Sign Our Guestbook!</h2>
+            
+            <!-- Guestbook Form -->
+            <form id="guestbook-form">
+                <input type="text" id="name" placeholder="Your name" required>
+                <textarea id="message" placeholder="Your message" required></textarea>
+                <button type="submit">Sign Guestbook</button>
+            </form>
+            
+            <!-- Display Messages -->
+            <div id="messages">
+                <h3>Recent Messages:</h3>
+                <div id="message-list"></div>
+            </div>
+        </div>
     </div>
+
+    <script>
+    // Load messages on page load
+    document.addEventListener('DOMContentLoaded', loadMessages);
+
+    // Handle form submission
+    document.getElementById('guestbook-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const name = document.getElementById('name').value;
+        const message = document.getElementById('message').value;
+        
+        try {
+            await fetch('/api/guestbook', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, message })
+            });
+            
+            // Clear form and reload messages
+            document.getElementById('guestbook-form').reset();
+            loadMessages();
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    });
+
+    // Load and display messages
+    async function loadMessages() {
+        try {
+            const response = await fetch('/api/guestbook');
+            const messages = await response.json();
+            
+            const messageList = document.getElementById('message-list');
+            messageList.innerHTML = messages.map(msg => `
+                <div class="message">
+                    <strong>${msg.name}</strong>: ${msg.message}
+                    <small>(${new Date(msg.created_at).toLocaleString()})</small>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading messages:', error);
+        }
+    }
+    </script>
 </body>
 </html>
