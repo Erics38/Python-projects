@@ -51,7 +51,7 @@ The enhanced application now includes:
 ### Original Docker Setup
 ```bash
 docker build -t hello-world .
-docker run -p 80:80 hello-world
+docker run -d -p 80:80 hello-world
 ```
 
 ### New Multi-Container Setup
