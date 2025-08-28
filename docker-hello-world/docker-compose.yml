@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: guestbook_db
       POSTGRES_USER: app_user
-      POSTGRES_PASSWORD: simple_password
+      POSTGRES_PASSWORD: joemama
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -20,7 +20,7 @@ services:
       DB_HOST: postgres
       DB_NAME: guestbook_db
       DB_USER: app_user
-      DB_PASSWORD: simple_password
+      DB_PASSWORD: joemama
       DB_PORT: 5432
     depends_on:
       - postgres
