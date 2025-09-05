@@ -71,8 +71,8 @@ variable "access_logs_bucket" {
   default     = ""
   
   validation {
-    condition = var.enable_access_logs == false || (var.enable_access_logs == true && var.access_logs_bucket != "")
-    error_message = "access_logs_bucket must be specified when enable_access_logs is true."
+    condition = var.access_logs_bucket != null
+    error_message = "access_logs_bucket cannot be null."
   }
 }
 

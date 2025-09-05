@@ -105,11 +105,19 @@ jobs:
         format: 'sarif'
         output: 'trivy-backend-results.sarif'
 
-    - name: Upload Trivy scan results to GitHub Security tab
+    - name: Upload Frontend Trivy scan results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
-        sarif_file: '.'
+        sarif_file: 'trivy-frontend-results.sarif'
+        category: 'trivy-frontend'
+
+    - name: Upload Backend Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-backend-results.sarif'
+        category: 'trivy-backend'
 
     - name: Check for critical vulnerabilities
       run: |
