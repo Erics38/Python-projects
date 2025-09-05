@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(unzip:*)",
-      "Bash(aws logs describe-log-groups:*)"
+      "Bash(aws logs describe-log-groups:*)",
+      "Bash(aws ec2 describe-security-groups:*)",
+      "Bash(aws ec2 delete-route-table:*)",
+      "Bash(aws ec2 describe-vpcs:*)"
     ],
     "deny": [],
     "ask": []
