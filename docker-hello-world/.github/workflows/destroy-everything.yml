@@ -59,13 +59,13 @@ jobs:
         terraform_version: ${{ env.TF_VERSION }}
 
     - name: Initialize Terraform
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "🚀 Initializing Terraform..."
         terraform init
 
     - name: List resources before destruction
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "📋 **Resources that will be destroyed:**"
         
@@ -102,7 +102,7 @@ jobs:
 
     - name: Create final database backup (if preserving)
       if: github.event.inputs.preserve_snapshots == 'true'
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "📸 Creating final database backup..."
         
@@ -134,7 +134,7 @@ jobs:
         fi
 
     - name: Destroy Terraform infrastructure
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "🔥 Destroying all Terraform-managed infrastructure..."
         

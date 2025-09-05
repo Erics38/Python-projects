@@ -50,7 +50,7 @@ jobs:
 
     - name: Check existing backend resources
       id: check-existing
-      working-directory: docker-hello-world/infrastructure/backend
+      working-directory: infrastructure/backend
       run: |
         echo "🔍 Checking for existing backend resources..."
         
@@ -67,7 +67,7 @@ jobs:
 
     - name: Handle existing backend (if force recreate)
       if: steps.check-existing.outputs.existing-backend == 'true' && github.event.inputs.force_recreate == 'true'
-      working-directory: docker-hello-world/infrastructure/backend
+      working-directory: infrastructure/backend
       run: |
         echo "🗑️ Force recreate enabled - destroying existing backend resources..."
         echo "⚠️  WARNING: This will destroy existing Terraform state history!"
@@ -92,26 +92,26 @@ jobs:
         exit 1
 
     - name: Initialize Terraform backend setup
-      working-directory: docker-hello-world/infrastructure/backend
+      working-directory: infrastructure/backend
       run: |
         echo "🚀 Initializing Terraform for backend setup..."
         terraform init
 
     - name: Plan backend resources
-      working-directory: docker-hello-world/infrastructure/backend
+      working-directory: infrastructure/backend
       run: |
         echo "📋 Planning backend resource creation..."
         terraform plan -var="aws_region=${{ env.AWS_REGION }}"
 
     - name: Apply backend configuration
-      working-directory: docker-hello-world/infrastructure/backend
+      working-directory: infrastructure/backend
       run: |
         echo "🏗️  Creating professional Terraform backend resources..."
         terraform apply -auto-approve -var="aws_region=${{ env.AWS_REGION }}"
 
     - name: Get backend configuration
       id: backend-config
-      working-directory: docker-hello-world/infrastructure/backend
+      working-directory: infrastructure/backend
       run: |
         echo "📊 Retrieving backend configuration..."
         
@@ -128,7 +128,7 @@ jobs:
         echo "table-name=$TABLE_NAME" >> $GITHUB_OUTPUT
         
         # Save backend config to artifact
-        echo "$BACKEND_CONFIG" > ../backend-config.txt
+        echo "$BACKEND_CONFIG" > backend-config.txt
         
         echo "📝 Backend configuration saved to artifact"
 
@@ -136,7 +136,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: terraform-backend-config
-        path: docker-hello-world/infrastructure/backend-config.txt
+        path: infrastructure/backend/backend-config.txt
         retention-days: 90
 
     - name: Verify backend resources
@@ -154,7 +154,7 @@ jobs:
         echo "✅ DynamoDB table verified: $TABLE_NAME"
 
     - name: Test backend functionality
-      working-directory: docker-hello-world/infrastructure/backend
+      working-directory: infrastructure/backend
       run: |
         echo "🧪 Testing backend functionality..."
         

@@ -40,7 +40,7 @@ jobs:
 
     - name: Check if infrastructure exists
       id: check-infra
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "🔍 Checking if infrastructure exists..."
         terraform init
@@ -68,7 +68,7 @@ jobs:
             --encryption-configuration encryptionType=AES256
 
     - name: Deploy infrastructure
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "🚀 Deploying infrastructure for ${{ github.event.inputs.environment }} environment..."
         
@@ -78,7 +78,7 @@ jobs:
 
     - name: Get deployment outputs
       id: deployment-outputs
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "📊 Getting deployment information..."
         

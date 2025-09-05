@@ -47,15 +47,13 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: docker-hello-world/backend/package-lock.json
 
     - name: Install backend dependencies
-      working-directory: docker-hello-world/backend
-      run: npm ci
+      working-directory: backend
+      run: npm install
 
     - name: Run application tests
-      working-directory: docker-hello-world/backend
+      working-directory: backend
       run: |
         echo "🧪 Running application tests..."
         # npm test (add when tests are available)
@@ -67,13 +65,13 @@ jobs:
         terraform_version: ${{ env.TF_VERSION }}
 
     - name: Terraform Format Check
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "🎨 Checking Terraform formatting..."
         terraform fmt -check -recursive
 
     - name: Terraform Validation
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "✅ Validating Terraform configuration..."
         terraform init -backend=false
@@ -87,7 +85,6 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Build Docker images for scanning
-      working-directory: docker-hello-world
       run: |
         echo "🔨 Building Docker images for security scanning..."
         docker build -t guestbook-frontend:scan -f Dockerfile .
@@ -165,7 +162,6 @@ jobs:
             --encryption-configuration encryptionType=AES256
 
     - name: Build, tag, and push images
-      working-directory: docker-hello-world
       run: |
         echo "🔨 Building container images..."
         
@@ -218,13 +214,13 @@ jobs:
         terraform_version: ${{ env.TF_VERSION }}
 
     - name: Terraform Init
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "🚀 Initializing Terraform..."
         terraform init
 
     - name: Terraform Plan
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "📋 Creating Terraform plan for ${{ github.event.inputs.deploy_environment }} environment..."
         terraform plan \
@@ -269,20 +265,20 @@ jobs:
         path: docker-hello-world/infrastructure/
 
     - name: Terraform Init
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "🚀 Initializing Terraform..."
         terraform init
 
     - name: Terraform Apply
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "🚀 Deploying infrastructure to ${{ github.event.inputs.deploy_environment }}..."
         terraform apply -auto-approve tfplan-${{ github.event.inputs.deploy_environment }}
 
     - name: Get deployment outputs
       id: terraform-outputs
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "📊 Getting deployment information..."
         APPLICATION_URL=$(terraform output -raw application_url)
@@ -326,13 +322,13 @@ jobs:
         terraform_version: ${{ env.TF_VERSION }}
 
     - name: Terraform Init
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "🚀 Initializing Terraform..."
         terraform init
 
     - name: Terraform Destroy
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "🗑️ Destroying infrastructure in ${{ github.event.inputs.deploy_environment }}..."
         terraform destroy -auto-approve \

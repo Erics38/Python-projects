@@ -52,14 +52,14 @@ jobs:
         terraform_version: ${{ env.TF_VERSION }}
 
     - name: Initialize Terraform
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "🚀 Initializing Terraform..."
         terraform init
 
     - name: Get current infrastructure state
       id: current-state
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "📊 Getting current infrastructure information..."
         
@@ -104,7 +104,7 @@ jobs:
 
     - name: Scale down services (Scale Down method)
       if: github.event.inputs.stop_method == 'scale_down'
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "⬇️ Scaling down services to minimal resources..."
         
@@ -126,7 +126,7 @@ jobs:
 
     - name: Destroy all infrastructure (Destroy All method)
       if: github.event.inputs.stop_method == 'destroy_all'
-      working-directory: docker-hello-world/infrastructure
+      working-directory: infrastructure
       run: |
         echo "🗑️ Destroying all infrastructure..."
         
