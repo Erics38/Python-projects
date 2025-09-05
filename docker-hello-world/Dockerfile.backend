@@ -1,14 +1,26 @@
 FROM node:18-alpine
 
+# Create app directory and non-root user
 WORKDIR /app
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodeuser -u 1001
 
+# Copy package files first for better caching
+COPY backend/package*.json ./
+
+# Install dependencies and security updates
+RUN apk update && apk upgrade && \
+    npm install --only=production && \
+    npm cache clean --force
+
+# Copy application code
 COPY backend/ ./
 
-RUN npm install
+# Change ownership to non-root user
+RUN chown -R nodeuser:nodejs /app
 
-COPY package*.json ./
-
-COPY backend/ ./
+# Switch to non-root user
+USER nodeuser
 
 EXPOSE 3000
 

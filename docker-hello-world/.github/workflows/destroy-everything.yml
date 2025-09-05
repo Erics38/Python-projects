@@ -1,0 +1,281 @@
+name: 🗑️ Destroy Everything
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to destroy'
+        required: true
+        default: 'demo'
+        type: choice
+        options:
+        - demo
+        - dev
+        - prod
+      confirm_destruction:
+        description: 'Type "DESTROY" to confirm total destruction'
+        required: true
+        type: string
+      preserve_snapshots:
+        description: 'Keep database snapshots for future use?'
+        required: true
+        default: true
+        type: boolean
+
+env:
+  AWS_REGION: us-east-1
+  TF_VERSION: 1.6.0
+
+jobs:
+  destroy-everything:
+    name: 🚨 Nuclear Option - Destroy All Resources
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}-destroy
+    steps:
+    - name: Validate confirmation
+      run: |
+        if [ "${{ github.event.inputs.confirm_destruction }}" != "DESTROY" ]; then
+          echo "❌ Destruction not confirmed. You must type exactly 'DESTROY' to proceed."
+          echo "This is a safety measure to prevent accidental resource deletion."
+          echo "Current input: '${{ github.event.inputs.confirm_destruction }}'"
+          echo "Required input: 'DESTROY'"
+          exit 1
+        fi
+        echo "✅ Destruction confirmed. Proceeding with total teardown."
+
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: Initialize Terraform
+      working-directory: docker-hello-world/infrastructure
+      run: |
+        echo "🚀 Initializing Terraform..."
+        terraform init
+
+    - name: List resources before destruction
+      working-directory: docker-hello-world/infrastructure
+      run: |
+        echo "📋 **Resources that will be destroyed:**"
+        
+        # List all Terraform-managed resources
+        echo "**Terraform Resources:**"
+        terraform state list || echo "No Terraform state found"
+        
+        echo ""
+        echo "**AWS Resources:**"
+        
+        # List ECR repositories
+        echo "ECR Repositories:"
+        aws ecr describe-repositories \
+          --query 'repositories[?contains(repositoryName, `guestbook`)].{Name:repositoryName,Images:imageDetails[?contains(imageTags[0], `latest`)].imageTags[0]}' \
+          --output table || echo "No ECR repositories found"
+        
+        # List ECS resources
+        echo "ECS Clusters:"
+        aws ecs list-clusters \
+          --query 'clusterArns[?contains(@, `guestbook`)][*]' \
+          --output table || echo "No ECS clusters found"
+        
+        # List RDS instances
+        echo "RDS Instances:"
+        aws rds describe-db-instances \
+          --query 'DBInstances[?contains(DBInstanceIdentifier, `guestbook`)].{ID:DBInstanceIdentifier,Status:DBInstanceStatus,Engine:Engine}' \
+          --output table || echo "No RDS instances found"
+        
+        # List Load Balancers
+        echo "Load Balancers:"
+        aws elbv2 describe-load-balancers \
+          --query 'LoadBalancers[?contains(LoadBalancerName, `guestbook`)].{Name:LoadBalancerName,DNS:DNSName,State:State.Code}' \
+          --output table || echo "No load balancers found"
+
+    - name: Create final database backup (if preserving)
+      if: github.event.inputs.preserve_snapshots == 'true'
+      working-directory: docker-hello-world/infrastructure
+      run: |
+        echo "📸 Creating final database backup..."
+        
+        # Get database instance ID from Terraform state
+        DB_INSTANCE_ID=$(terraform state show 'module.database.aws_db_instance.main' 2>/dev/null | grep "^[[:space:]]*id[[:space:]]*=" | cut -d'"' -f2 || echo "")
+        
+        if [ -n "$DB_INSTANCE_ID" ]; then
+          FINAL_SNAPSHOT_ID="guestbook-final-backup-${{ github.event.inputs.environment }}-$(date +%Y%m%d-%H%M%S)"
+          
+          echo "Database ID: $DB_INSTANCE_ID"
+          echo "Snapshot ID: $FINAL_SNAPSHOT_ID"
+          
+          # Check database status and create snapshot
+          DB_STATUS=$(aws rds describe-db-instances \
+            --db-instance-identifier "$DB_INSTANCE_ID" \
+            --query 'DBInstances[0].DBInstanceStatus' --output text 2>/dev/null || echo "not-found")
+          
+          if [ "$DB_STATUS" = "available" ]; then
+            echo "✅ Creating final database backup..."
+            aws rds create-db-snapshot \
+              --db-instance-identifier "$DB_INSTANCE_ID" \
+              --db-snapshot-identifier "$FINAL_SNAPSHOT_ID"
+            echo "✅ Final backup created: $FINAL_SNAPSHOT_ID"
+          else
+            echo "⚠️  Database status: $DB_STATUS - skipping backup"
+          fi
+        else
+          echo "No database found in Terraform state"
+        fi
+
+    - name: Destroy Terraform infrastructure
+      working-directory: docker-hello-world/infrastructure
+      run: |
+        echo "🔥 Destroying all Terraform-managed infrastructure..."
+        
+        # Destroy all resources
+        terraform destroy -auto-approve \
+          -var-file="environments/${{ github.event.inputs.environment }}.tfvars"
+        
+        echo "✅ Terraform infrastructure destroyed"
+
+    - name: Clean up ECR repositories and images
+      run: |
+        echo "🗂️ Cleaning up ECR repositories..."
+        
+        # List and delete all images in repositories
+        for repo in guestbook-frontend guestbook-backend; do
+          if aws ecr describe-repositories --repository-names $repo 2>/dev/null; then
+            echo "Cleaning up repository: $repo"
+            
+            # Delete all images in the repository
+            IMAGE_TAGS=$(aws ecr list-images --repository-name $repo \
+              --query 'imageIds[*].imageTag' --output text 2>/dev/null || echo "")
+            
+            if [ -n "$IMAGE_TAGS" ]; then
+              echo "Deleting images: $IMAGE_TAGS"
+              aws ecr batch-delete-image --repository-name $repo \
+                --image-ids $(echo $IMAGE_TAGS | tr ' ' '\n' | sed 's/^/imageTag=/') || true
+            fi
+            
+            # Optionally delete the repository itself
+            echo "Deleting ECR repository: $repo"
+            aws ecr delete-repository --repository-name $repo --force || true
+          else
+            echo "Repository $repo not found"
+          fi
+        done
+
+    - name: Verify cleanup completion
+      run: |
+        echo "🔍 Verifying cleanup completion..."
+        
+        echo "Checking for remaining resources..."
+        
+        # Check for any remaining guestbook resources
+        echo "ECS Clusters:"
+        REMAINING_CLUSTERS=$(aws ecs list-clusters \
+          --query 'clusterArns[?contains(@, `guestbook`)][*]' --output text || echo "")
+        if [ -n "$REMAINING_CLUSTERS" ]; then
+          echo "⚠️  Remaining clusters: $REMAINING_CLUSTERS"
+        else
+          echo "✅ No ECS clusters remaining"
+        fi
+        
+        echo "RDS Instances:"
+        REMAINING_RDS=$(aws rds describe-db-instances \
+          --query 'DBInstances[?contains(DBInstanceIdentifier, `guestbook`)].DBInstanceIdentifier' --output text || echo "")
+        if [ -n "$REMAINING_RDS" ]; then
+          echo "⚠️  Remaining RDS instances: $REMAINING_RDS"
+        else
+          echo "✅ No RDS instances remaining"
+        fi
+        
+        echo "Load Balancers:"
+        REMAINING_ALB=$(aws elbv2 describe-load-balancers \
+          --query 'LoadBalancers[?contains(LoadBalancerName, `guestbook`)].LoadBalancerName' --output text || echo "")
+        if [ -n "$REMAINING_ALB" ]; then
+          echo "⚠️  Remaining load balancers: $REMAINING_ALB"
+        else
+          echo "✅ No load balancers remaining"
+        fi
+
+    - name: List remaining snapshots
+      if: github.event.inputs.preserve_snapshots == 'true'
+      run: |
+        echo "💾 **Preserved Database Snapshots:**"
+        aws rds describe-db-snapshots \
+          --query 'DBSnapshots[?contains(DBSnapshotIdentifier, `guestbook-${{ github.event.inputs.environment }}`)].{ID:DBSnapshotIdentifier,Created:SnapshotCreateTime,Size:AllocatedStorage}' \
+          --output table || true
+        
+        echo ""
+        echo "📝 **Note:** Database snapshots are preserved for future restoration."
+        echo "To delete snapshots later (additional cost savings):"
+        echo "aws rds delete-db-snapshot --db-snapshot-identifier SNAPSHOT_ID"
+
+    - name: Calculate final costs
+      run: |
+        echo "💰 **Cost Impact:**"
+        echo "- **ECS Fargate:** $0.00/hour (deleted)"
+        echo "- **RDS Instance:** $0.00/hour (deleted)"
+        echo "- **Application Load Balancer:** $0.00/hour (deleted)"
+        echo "- **ECR Storage:** $0.00/month (deleted)"
+        if [ "${{ github.event.inputs.preserve_snapshots }}" = "true" ]; then
+          echo "- **RDS Snapshots:** ~$0.05-0.10/month (preserved)"
+          echo "- **Total ongoing cost:** ~$0.05-0.10/month"
+        else
+          echo "- **RDS Snapshots:** $0.00/month (deleted)"
+          echo "- **Total ongoing cost:** $0.00/month"
+        fi
+        echo ""
+        echo "✅ **Project is now completely shut down!**"
+
+    - name: Create destruction summary issue
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const title = `🗑️ Complete Destruction - ${{ github.event.inputs.environment }}`;
+          const body = `
+          ## 🚨 COMPLETE INFRASTRUCTURE DESTRUCTION
+          
+          **Environment:** ${{ github.event.inputs.environment }}
+          **Destroyed:** ${new Date().toISOString()}
+          **Destroyed by:** @${{ github.actor }}
+          **Snapshots preserved:** ${{ github.event.inputs.preserve_snapshots }}
+          
+          ### 🔥 Resources Destroyed
+          - ✅ All ECS Services & Clusters
+          - ✅ Application Load Balancer
+          - ✅ RDS Database Instance
+          - ✅ ECR Container Images
+          - ✅ CloudFormation Stacks
+          - ✅ Security Groups & Networking
+          
+          ### 💾 Data Status
+          ${{ github.event.inputs.preserve_snapshots == 'true' ? '✅ Database snapshots preserved for future restoration' : '❌ All data permanently deleted' }}
+          
+          ### 💰 Cost Impact
+          - **Previous monthly cost:** ~$50-60/month
+          - **New monthly cost:** ${{ github.event.inputs.preserve_snapshots == 'true' ? '~$0.05-0.10/month (snapshots only)' : '$0.00/month' }}
+          - **Monthly savings:** ~$50-60/month
+          
+          ### 🔄 To Rebuild Everything
+          You can rebuild the entire infrastructure by running the deployment workflows again. 
+          ${{ github.event.inputs.preserve_snapshots == 'true' ? 'Your data will be restored from snapshots.' : 'You will start with a fresh database.' }}
+          
+          ---
+          **⚠️ This action cannot be undone. All AWS resources for this environment have been permanently deleted.**
+          `;
+          
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: title,
+            body: body,
+            labels: ['destruction', 'infrastructure', 'completed']
+          });

@@ -25,8 +25,8 @@
             
             <!-- Guestbook Form -->
             <form id="guestbook-form">
-                <input type="text" id="name" placeholder="Your name" required>
-                <textarea id="message" placeholder="Your message" required></textarea>
+                <input type="text" id="name" placeholder="Your name" required maxlength="100">
+                <textarea id="message" placeholder="Your message" required maxlength="1000"></textarea>
                 <button type="submit">Sign Guestbook</button>
             </form>
             
@@ -39,6 +39,35 @@
     </div>
 
     <script>
+    // XSS Protection - Escape HTML characters
+    function escapeHtml(text) {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
+    // Input validation
+    function validateInput(name, message) {
+        if (!name || !message) {
+            alert('Please fill in both name and message fields.');
+            return false;
+        }
+        if (name.length > 100) {
+            alert('Name must be less than 100 characters.');
+            return false;
+        }
+        if (message.length > 1000) {
+            alert('Message must be less than 1000 characters.');
+            return false;
+        }
+        return true;
+    }
+
     // Load messages on page load
     document.addEventListener('DOMContentLoaded', loadMessages);
 
@@ -46,8 +75,13 @@
     document.getElementById('guestbook-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        const name = document.getElementById('name').value;
-        const message = document.getElementById('message').value;
+        const name = document.getElementById('name').value.trim();
+        const message = document.getElementById('message').value.trim();
+        
+        // Validate input before sending
+        if (!validateInput(name, message)) {
+            return;
+        }
         
         try {
             await fetch('/api/guestbook', {
@@ -73,7 +107,7 @@
             const messageList = document.getElementById('message-list');
             messageList.innerHTML = messages.map(msg => `
                 <div class="message">
-                    <strong>${msg.name}</strong>: ${msg.message}
+                    <strong>${escapeHtml(msg.name)}</strong>: ${escapeHtml(msg.message)}
                     <small>(${new Date(msg.created_at).toLocaleString()})</small>
                 </div>
             `).join('');

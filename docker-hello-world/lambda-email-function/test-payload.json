@@ -1,0 +1,7 @@
+{
+  "Records": [
+    {
+      "body": "{\"id\":999,\"name\":\"Direct Test\",\"message\":\"Testing direct invoke\"}"
+    }
+  ]
+}

@@ -1,12 +1,14 @@
 # Use the official nginx image as base
 FROM nginx:alpine
 
+# Apply security updates
+RUN apk update && apk upgrade
+
 # Copy our HTML and CSS files to nginx's default directory
 COPY index.html /usr/share/nginx/html/
 COPY style.css /usr/share/nginx/html/
 
-# Expose port 80 (nginx default) this is the second number in the port when
-# I go to create the container XXXX:80
+# Expose port 80
 EXPOSE 80
 
 # nginx starts automatically with this image, so no CMD needed

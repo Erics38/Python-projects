@@ -1,0 +1,59 @@
+🔍 Starting Comprehensive Infrastructure Validation...
+==================================================
+[0;34m📋 1. Validating Terraform Configuration Structure[0m
+[0;32m✅ Main configuration file exists[0m
+[0;32m✅ Variables file exists[0m
+[0;32m✅ Outputs file exists[0m
+[0;34m📋 2. Validating Module Structure[0m
+[0;32m✅ Module 'networking' directory exists[0m
+[0;32m✅   - main.tf exists in networking[0m
+[0;32m✅   - variables.tf exists in networking[0m
+[0;32m✅   - outputs.tf exists in networking[0m
+[0;32m✅ Module 'security' directory exists[0m
+[0;32m✅   - main.tf exists in security[0m
+[0;32m✅   - variables.tf exists in security[0m
+[0;32m✅   - outputs.tf exists in security[0m
+[0;32m✅ Module 'database' directory exists[0m
+[0;32m✅   - main.tf exists in database[0m
+[0;32m✅   - variables.tf exists in database[0m
+[0;32m✅   - outputs.tf exists in database[0m
+[0;32m✅ Module 'load_balancer' directory exists[0m
+[0;32m✅   - main.tf exists in load_balancer[0m
+[0;32m✅   - variables.tf exists in load_balancer[0m
+[0;32m✅   - outputs.tf exists in load_balancer[0m
+[0;32m✅ Module 'ecs' directory exists[0m
+[0;32m✅   - main.tf exists in ecs[0m
+[0;32m✅   - variables.tf exists in ecs[0m
+[0;32m✅   - outputs.tf exists in ecs[0m
+[0;32m✅ Module 'monitoring' directory exists[0m
+[0;32m✅   - main.tf exists in monitoring[0m
+[0;32m✅   - variables.tf exists in monitoring[0m
+[0;32m✅   - outputs.tf exists in monitoring[0m
+[0;32m✅ Module 'security_hardening' directory exists[0m
+[0;32m✅   - main.tf exists in security_hardening[0m
+[0;32m✅   - variables.tf exists in security_hardening[0m
+[0;32m✅   - outputs.tf exists in security_hardening[0m
+[0;34m📋 3. Validating Environment Configurations[0m
+[0;32m✅ Environment 'demo' configuration exists[0m
+[0;32m✅   - Variable 'environment' configured in demo[0m
+[0;32m✅   - Variable 'aws_region' configured in demo[0m
+[0;32m✅   - Variable 'container_cpu' configured in demo[0m
+[0;32m✅   - Variable 'container_memory' configured in demo[0m
+[0;32m✅ Environment 'dev' configuration exists[0m
+[0;32m✅   - Variable 'environment' configured in dev[0m
+[0;32m✅   - Variable 'aws_region' configured in dev[0m
+[0;32m✅   - Variable 'container_cpu' configured in dev[0m
+[0;32m✅   - Variable 'container_memory' configured in dev[0m
+[0;32m✅ Environment 'prod' configuration exists[0m
+[0;32m✅   - Variable 'environment' configured in prod[0m
+[0;32m✅   - Variable 'aws_region' configured in prod[0m
+[0;32m✅   - Variable 'container_cpu' configured in prod[0m
+[0;32m✅   - Variable 'container_memory' configured in prod[0m
+[0;34m📋 4. Validating Backend Configuration[0m
+[0;32m✅ Backend configuration directory exists[0m
+[0;32m✅   - Backend main.tf exists[0m
+[0;32m✅   - Backend variables.tf exists[0m
+[0;32m✅   - Backend outputs.tf exists[0m
+[0;34m📋 5. Checking for Common Configuration Issues[0m
+[1;33m⚠️  Hardcoded AWS region found in modules[0m
+[0;34mℹ️    - Consider using variables for AWS region[0m

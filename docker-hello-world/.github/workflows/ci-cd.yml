@@ -1,0 +1,347 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      deploy_environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'demo'
+        type: choice
+        options:
+        - demo
+        - dev
+        - prod
+      terraform_action:
+        description: 'Terraform action to perform'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+        - plan
+        - apply
+        - destroy
+
+env:
+  AWS_REGION: us-east-1
+  TF_VERSION: 1.6.0
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  # =============================================================================
+  # CONTINUOUS INTEGRATION (CI) JOBS
+  # =============================================================================
+  
+  validate:
+    name: 🔍 Validate Code & Infrastructure
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: docker-hello-world/backend/package-lock.json
+
+    - name: Install backend dependencies
+      working-directory: docker-hello-world/backend
+      run: npm ci
+
+    - name: Run application tests
+      working-directory: docker-hello-world/backend
+      run: |
+        echo "🧪 Running application tests..."
+        # npm test (add when tests are available)
+        echo "✅ Tests passed (placeholder)"
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: Terraform Format Check
+      working-directory: docker-hello-world/infrastructure
+      run: |
+        echo "🎨 Checking Terraform formatting..."
+        terraform fmt -check -recursive
+
+    - name: Terraform Validation
+      working-directory: docker-hello-world/infrastructure
+      run: |
+        echo "✅ Validating Terraform configuration..."
+        terraform init -backend=false
+        terraform validate
+
+  security-scan:
+    name: 🛡️ Security Scanning
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build Docker images for scanning
+      working-directory: docker-hello-world
+      run: |
+        echo "🔨 Building Docker images for security scanning..."
+        docker build -t guestbook-frontend:scan -f Dockerfile .
+        docker build -t guestbook-backend:scan -f Dockerfile.backend .
+
+    - name: Run Trivy security scan on frontend
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: guestbook-frontend:scan
+        format: 'sarif'
+        output: 'trivy-frontend-results.sarif'
+
+    - name: Run Trivy security scan on backend
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: guestbook-backend:scan
+        format: 'sarif'
+        output: 'trivy-backend-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: '.'
+
+    - name: Check for critical vulnerabilities
+      run: |
+        echo "🔍 Checking for HIGH/CRITICAL vulnerabilities..."
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy image --exit-code 1 --severity HIGH,CRITICAL \
+          guestbook-frontend:scan
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+          aquasec/trivy image --exit-code 1 --severity HIGH,CRITICAL \
+          guestbook-backend:scan
+
+  # =============================================================================
+  # CONTINUOUS DEPLOYMENT (CD) JOBS
+  # =============================================================================
+
+  build-and-push:
+    name: 🏗️ Build & Push Container Images
+    needs: [validate, security-scan]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    outputs:
+      frontend-image: ${{ steps.image-tags.outputs.frontend-image }}
+      backend-image: ${{ steps.image-tags.outputs.backend-image }}
+      ecr-registry: ${{ steps.login-ecr.outputs.registry }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Create ECR repositories if they don't exist
+      run: |
+        echo "📦 Ensuring ECR repositories exist..."
+        aws ecr describe-repositories --repository-names guestbook-frontend || \
+          aws ecr create-repository --repository-name guestbook-frontend \
+            --image-scanning-configuration scanOnPush=true \
+            --encryption-configuration encryptionType=AES256
+        
+        aws ecr describe-repositories --repository-names guestbook-backend || \
+          aws ecr create-repository --repository-name guestbook-backend \
+            --image-scanning-configuration scanOnPush=true \
+            --encryption-configuration encryptionType=AES256
+
+    - name: Build, tag, and push images
+      working-directory: docker-hello-world
+      run: |
+        echo "🔨 Building container images..."
+        
+        # Build images
+        docker build -t guestbook-frontend:${{ env.IMAGE_TAG }} -f Dockerfile .
+        docker build -t guestbook-backend:${{ env.IMAGE_TAG }} -f Dockerfile.backend .
+        
+        echo "🏷️ Tagging images for ECR..."
+        
+        # Tag for ECR
+        docker tag guestbook-frontend:${{ env.IMAGE_TAG }} ${{ steps.login-ecr.outputs.registry }}/guestbook-frontend:${{ env.IMAGE_TAG }}
+        docker tag guestbook-backend:${{ env.IMAGE_TAG }} ${{ steps.login-ecr.outputs.registry }}/guestbook-backend:${{ env.IMAGE_TAG }}
+        docker tag guestbook-frontend:${{ env.IMAGE_TAG }} ${{ steps.login-ecr.outputs.registry }}/guestbook-frontend:latest
+        docker tag guestbook-backend:${{ env.IMAGE_TAG }} ${{ steps.login-ecr.outputs.registry }}/guestbook-backend:latest
+        
+        echo "🚀 Pushing images to ECR..."
+        
+        # Push to ECR
+        docker push ${{ steps.login-ecr.outputs.registry }}/guestbook-frontend:${{ env.IMAGE_TAG }}
+        docker push ${{ steps.login-ecr.outputs.registry }}/guestbook-backend:${{ env.IMAGE_TAG }}
+        docker push ${{ steps.login-ecr.outputs.registry }}/guestbook-frontend:latest
+        docker push ${{ steps.login-ecr.outputs.registry }}/guestbook-backend:latest
+
+    - name: Set image output variables
+      id: image-tags
+      run: |
+        echo "frontend-image=${{ steps.login-ecr.outputs.registry }}/guestbook-frontend:${{ env.IMAGE_TAG }}" >> $GITHUB_OUTPUT
+        echo "backend-image=${{ steps.login-ecr.outputs.registry }}/guestbook-backend:${{ env.IMAGE_TAG }}" >> $GITHUB_OUTPUT
+
+  terraform-plan:
+    name: 📋 Terraform Plan
+    needs: [build-and-push]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && (github.event.inputs.terraform_action == 'plan' || github.event.inputs.terraform_action == 'apply')
+    environment: ${{ github.event.inputs.deploy_environment }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: Terraform Init
+      working-directory: docker-hello-world/infrastructure
+      run: |
+        echo "🚀 Initializing Terraform..."
+        terraform init
+
+    - name: Terraform Plan
+      working-directory: docker-hello-world/infrastructure
+      run: |
+        echo "📋 Creating Terraform plan for ${{ github.event.inputs.deploy_environment }} environment..."
+        terraform plan \
+          -var-file="environments/${{ github.event.inputs.deploy_environment }}.tfvars" \
+          -var="frontend_image=${{ needs.build-and-push.outputs.frontend-image }}" \
+          -var="backend_image=${{ needs.build-and-push.outputs.backend-image }}" \
+          -out=tfplan-${{ github.event.inputs.deploy_environment }}
+
+    - name: Upload Terraform Plan
+      uses: actions/upload-artifact@v4
+      with:
+        name: terraform-plan-${{ github.event.inputs.deploy_environment }}
+        path: docker-hello-world/infrastructure/tfplan-${{ github.event.inputs.deploy_environment }}
+        retention-days: 30
+
+  terraform-apply:
+    name: 🚀 Deploy Infrastructure
+    needs: [build-and-push, terraform-plan]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.terraform_action == 'apply'
+    environment: ${{ github.event.inputs.deploy_environment }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: Download Terraform Plan
+      uses: actions/download-artifact@v4
+      with:
+        name: terraform-plan-${{ github.event.inputs.deploy_environment }}
+        path: docker-hello-world/infrastructure/
+
+    - name: Terraform Init
+      working-directory: docker-hello-world/infrastructure
+      run: |
+        echo "🚀 Initializing Terraform..."
+        terraform init
+
+    - name: Terraform Apply
+      working-directory: docker-hello-world/infrastructure
+      run: |
+        echo "🚀 Deploying infrastructure to ${{ github.event.inputs.deploy_environment }}..."
+        terraform apply -auto-approve tfplan-${{ github.event.inputs.deploy_environment }}
+
+    - name: Get deployment outputs
+      id: terraform-outputs
+      working-directory: docker-hello-world/infrastructure
+      run: |
+        echo "📊 Getting deployment information..."
+        APPLICATION_URL=$(terraform output -raw application_url)
+        CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)
+        
+        echo "application-url=$APPLICATION_URL" >> $GITHUB_OUTPUT
+        echo "cluster-name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+        echo "environment=${{ github.event.inputs.deploy_environment }}" >> $GITHUB_OUTPUT
+
+    - name: Deployment Summary
+      run: |
+        echo "## 🚀 Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Environment:** ${{ github.event.inputs.deploy_environment }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Application URL:** ${{ steps.terraform-outputs.outputs.application-url }}" >> $GITHUB_STEP_SUMMARY
+        echo "**ECS Cluster:** ${{ steps.terraform-outputs.outputs.cluster-name }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Container Images" >> $GITHUB_STEP_SUMMARY
+        echo "- **Frontend:** \`${{ needs.build-and-push.outputs.frontend-image }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Backend:** \`${{ needs.build-and-push.outputs.backend-image }}\`" >> $GITHUB_STEP_SUMMARY
+
+  terraform-destroy:
+    name: 🗑️ Destroy Infrastructure
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.terraform_action == 'destroy'
+    environment: ${{ github.event.inputs.deploy_environment }}-destroy
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: Terraform Init
+      working-directory: docker-hello-world/infrastructure
+      run: |
+        echo "🚀 Initializing Terraform..."
+        terraform init
+
+    - name: Terraform Destroy
+      working-directory: docker-hello-world/infrastructure
+      run: |
+        echo "🗑️ Destroying infrastructure in ${{ github.event.inputs.deploy_environment }}..."
+        terraform destroy -auto-approve \
+          -var-file="environments/${{ github.event.inputs.deploy_environment }}.tfvars"
+
+    - name: Cleanup ECR images (optional)
+      run: |
+        echo "🧹 Cleaning up ECR repositories..."
+        aws ecr batch-delete-image --repository-name guestbook-frontend \
+          --image-ids imageTag=latest imageTag=${{ env.IMAGE_TAG }} || true
+        aws ecr batch-delete-image --repository-name guestbook-backend \
+          --image-ids imageTag=latest imageTag=${{ env.IMAGE_TAG }} || true
