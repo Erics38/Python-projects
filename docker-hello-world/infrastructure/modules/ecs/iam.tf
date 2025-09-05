@@ -38,7 +38,7 @@ resource "aws_iam_role" "ecs_execution_role" {
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-ecs-execution-role"
     Type = "IAM Role"
-    Purpose = "ECS task execution (infrastructure operations)"
+    Purpose = "ECS task execution infrastructure operations"
   })
 }
 

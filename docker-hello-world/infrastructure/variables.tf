@@ -264,3 +264,26 @@ variable "waf_blocked_requests_threshold" {
     error_message = "WAF blocked requests threshold must be between 10 and 10,000."
   }
 }
+
+# ECS Deployment Configuration Variables (for backward compatibility)
+variable "deployment_maximum_percent" {
+  description = "Maximum percentage of tasks that can be running during deployment"
+  type        = number
+  default     = 200
+
+  validation {
+    condition     = var.deployment_maximum_percent >= 100 && var.deployment_maximum_percent <= 400
+    error_message = "Deployment maximum percent must be between 100 and 400."
+  }
+}
+
+variable "deployment_minimum_healthy_percent" {
+  description = "Minimum percentage of healthy tasks during deployment"
+  type        = number
+  default     = 100
+
+  validation {
+    condition     = var.deployment_minimum_healthy_percent >= 0 && var.deployment_minimum_healthy_percent <= 100
+    error_message = "Deployment minimum healthy percent must be between 0 and 100."
+  }
+}
