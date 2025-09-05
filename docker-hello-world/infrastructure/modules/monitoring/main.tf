@@ -340,16 +340,7 @@ resource "aws_sns_topic_subscription" "email_alerts" {
 }
 
 # Container Insights for ECS Cluster
-resource "aws_ecs_cluster_capacity_providers" "insights" {
-  cluster_name       = var.cluster_name
-  capacity_providers = ["FARGATE"]
-
-  default_capacity_provider_strategy {
-    base              = 1
-    weight            = 100
-    capacity_provider = "FARGATE"
-  }
-}
+# Note: Capacity providers are managed by the ECS module to avoid conflicts
 
 # Custom Metric Filters for Application Logs
 resource "aws_cloudwatch_log_metric_filter" "error_count" {

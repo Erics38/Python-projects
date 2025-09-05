@@ -110,7 +110,7 @@ output "capacity_providers" {
 
 output "default_capacity_provider_strategy" {
   description = "Default capacity provider strategy for the cluster"
-  value       = aws_ecs_cluster.main.default_capacity_provider_strategy
+  value       = aws_ecs_cluster_capacity_providers.main.default_capacity_provider_strategy
   
   # Shows how tasks are distributed across capacity providers by default
 }
