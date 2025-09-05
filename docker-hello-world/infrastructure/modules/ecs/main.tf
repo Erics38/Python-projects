@@ -298,19 +298,19 @@ resource "aws_ecs_service" "frontend" {
     container_port   = 80
   }
   
-  # DEPLOYMENT CONFIGURATION
+  # DEPLOYMENT CONFIGURATION - TEMPORARILY DISABLED FOR COMPATIBILITY
   # Controls how updates are rolled out
-  deployment_configuration {
-    maximum_percent         = 200  # Can have up to 200% of desired during deployment
-    minimum_healthy_percent = 100  # Must maintain 100% healthy during deployment
-  }
+  # deployment_configuration {
+  #   maximum_percent         = 200  # Can have up to 200% of desired during deployment
+  #   minimum_healthy_percent = 100  # Must maintain 100% healthy during deployment
+  # }
   
-  # DEPLOYMENT CIRCUIT BREAKER
+  # DEPLOYMENT CIRCUIT BREAKER - TEMPORARILY DISABLED FOR COMPATIBILITY
   # Automatically rolls back failed deployments
-  deployment_circuit_breaker {
-    enable   = true
-    rollback = true  # Auto-rollback on failure
-  }
+  # deployment_circuit_breaker {
+  #   enable   = true
+  #   rollback = true  # Auto-rollback on failure
+  # }
   
   # DEPLOYMENT CONTROLLER TYPE
   # ECS = standard rolling deployment
@@ -378,15 +378,15 @@ resource "aws_ecs_service" "backend" {
     container_port   = var.container_port
   }
   
-  deployment_configuration {
-    maximum_percent         = 200
-    minimum_healthy_percent = 100
-  }
+  # deployment_configuration {
+  #   maximum_percent         = 200
+  #   minimum_healthy_percent = 100
+  # }
   
-  deployment_circuit_breaker {
-    enable   = true
-    rollback = true
-  }
+  # deployment_circuit_breaker {
+  #   enable   = true
+  #   rollback = true
+  # }
   
   deployment_controller {
     type = "ECS"
