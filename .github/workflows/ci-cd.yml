@@ -66,12 +66,17 @@ jobs:
 
     - name: Terraform Format Check
       working-directory: docker-hello-world/infrastructure
+      timeout-minutes: 5
       run: |
         echo "🎨 Checking Terraform formatting..."
-        terraform fmt -check -recursive
+        terraform fmt -check -diff -recursive || {
+          echo "❌ Terraform formatting issues found. Run 'terraform fmt -recursive' to fix."
+          exit 1
+        }
 
     - name: Terraform Validation
       working-directory: docker-hello-world/infrastructure
+      timeout-minutes: 5
       run: |
         echo "✅ Validating Terraform configuration..."
         terraform init -backend=false
