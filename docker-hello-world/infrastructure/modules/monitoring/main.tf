@@ -104,10 +104,10 @@ resource "aws_cloudwatch_dashboard" "application_dashboard" {
     ]
   })
 
-  tags = {
-    Name        = "${var.environment}-dashboard"
-    Environment = var.environment
-  }
+  # tags = {
+  #   Name        = "${var.environment}-dashboard"
+  #   Environment = var.environment
+  # }
 }
 
 # CloudWatch Alarms for High CPU Usage
