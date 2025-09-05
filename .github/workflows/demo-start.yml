@@ -1,0 +1,170 @@
+name: 🚀 Start Demo
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Demo environment'
+        required: true
+        default: 'demo'
+        type: choice
+        options:
+        - demo
+        - dev
+        - prod
+
+env:
+  AWS_REGION: us-east-1
+  TF_VERSION: 1.6.0
+
+jobs:
+  start-demo:
+    name: Start Demo Environment
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: Check if infrastructure exists
+      id: check-infra
+      working-directory: docker-hello-world/infrastructure
+      run: |
+        echo "🔍 Checking if infrastructure exists..."
+        terraform init
+        
+        # Check if Terraform state exists and has resources
+        if terraform state list 2>/dev/null | grep -q .; then
+          echo "infra-exists=true" >> $GITHUB_OUTPUT
+          echo "✅ Infrastructure already exists, will update if needed"
+        else
+          echo "infra-exists=false" >> $GITHUB_OUTPUT
+          echo "📦 No infrastructure found, will create from scratch"
+        fi
+
+    - name: Create ECR repositories
+      run: |
+        echo "📦 Ensuring ECR repositories exist..."
+        aws ecr describe-repositories --repository-names guestbook-frontend || \
+          aws ecr create-repository --repository-name guestbook-frontend \
+            --image-scanning-configuration scanOnPush=true \
+            --encryption-configuration encryptionType=AES256
+        
+        aws ecr describe-repositories --repository-names guestbook-backend || \
+          aws ecr create-repository --repository-name guestbook-backend \
+            --image-scanning-configuration scanOnPush=true \
+            --encryption-configuration encryptionType=AES256
+
+    - name: Deploy infrastructure
+      working-directory: docker-hello-world/infrastructure
+      run: |
+        echo "🚀 Deploying infrastructure for ${{ github.event.inputs.environment }} environment..."
+        
+        # Apply Terraform with environment-specific variables
+        terraform apply -auto-approve \
+          -var-file="environments/${{ github.event.inputs.environment }}.tfvars"
+
+    - name: Get deployment outputs
+      id: deployment-outputs
+      working-directory: docker-hello-world/infrastructure
+      run: |
+        echo "📊 Getting deployment information..."
+        
+        # Get Terraform outputs
+        APPLICATION_URL=$(terraform output -raw application_url 2>/dev/null || echo "")
+        CLUSTER_NAME=$(terraform output -raw ecs_cluster_name 2>/dev/null || echo "")
+        
+        echo "application-url=$APPLICATION_URL" >> $GITHUB_OUTPUT
+        echo "cluster-name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+        
+        if [ -n "$APPLICATION_URL" ]; then
+          echo "✅ Application URL: $APPLICATION_URL"
+        else
+          echo "⚠️  Could not retrieve application URL"
+        fi
+
+    - name: Wait for services to be healthy
+      if: steps.deployment-outputs.outputs.application-url != ''
+      run: |
+        echo "🔄 Waiting for services to become healthy..."
+        APPLICATION_URL="${{ steps.deployment-outputs.outputs.application-url }}"
+        
+        echo "🌟 Demo environment is starting up!"
+        echo "🔗 URL: $APPLICATION_URL"
+        echo "⏱️  Give it 2-3 minutes for all services to be fully ready"
+        
+        # Wait a bit for containers to start
+        sleep 60
+        
+        # Test application health
+        for i in {1..10}; do
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$APPLICATION_URL" || echo "000")
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "301" ] || [ "$HTTP_CODE" = "302" ]; then
+            echo "✅ Demo is ready and responding!"
+            break
+          else
+            echo "🔄 Services still starting up... (attempt $i/10, HTTP: $HTTP_CODE)"
+            sleep 30
+          fi
+        done
+
+    - name: Calculate estimated cost
+      run: |
+        echo "📊 **Estimated Demo Costs:**"
+        echo "- ECS Fargate (2 services): ~$0.10-0.20/hour"
+        echo "- RDS t3.micro: ~$0.017/hour"  
+        echo "- Application Load Balancer: ~$0.025/hour"
+        echo "- **Total: ~$0.15-0.25/hour (~$3.60-6.00/day)**"
+        echo ""
+        echo "💡 **Cost Tip:** Stop the demo when not in use to minimize charges!"
+
+    - name: Create issue with demo info
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const title = `🚀 Demo Environment Started - ${{ github.event.inputs.environment }}`;
+          const body = `
+          ## Demo Environment: ${{ github.event.inputs.environment }}
+          
+          **Status:** 🟢 Starting Up
+          **Started:** ${new Date().toISOString()}
+          **Started by:** @${{ github.actor }}
+          
+          ### 🔗 Access Information
+          The demo URL will be available in ~2-3 minutes:
+          - Check the [GitHub Action logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for the exact URL
+          
+          ### 💰 Cost Information
+          - **Estimated cost:** $0.15-0.25/hour
+          - **Daily cost if left running:** $3.60-6.00/day
+          - **Remember to stop the demo when done!**
+          
+          ### 🛑 To Stop Demo
+          Use the [Stop Demo workflow](https://github.com/${{ github.repository }}/actions/workflows/demo-stop.yml) or click the "Stop Demo" button.
+          
+          ### 📊 Services
+          - ✅ ECS Frontend Service
+          - ✅ ECS Backend Service  
+          - ✅ RDS PostgreSQL
+          - ✅ Application Load Balancer
+          `;
+          
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: title,
+            body: body,
+            labels: ['demo', 'infrastructure']
+          });

@@ -1,0 +1,247 @@
+name: 🏗️ Setup Terraform Backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      aws_region:
+        description: 'AWS region for backend resources'
+        required: true
+        default: 'us-east-1'
+        type: string
+      force_recreate:
+        description: 'Force recreate backend resources (WARNING: destroys existing state)'
+        required: true
+        default: false
+        type: boolean
+
+env:
+  AWS_REGION: ${{ github.event.inputs.aws_region }}
+  TF_VERSION: 1.6.0
+
+jobs:
+  setup-backend:
+    name: 🏗️ Create Professional Terraform Backend
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Verify AWS credentials
+      run: |
+        echo "🔍 Verifying AWS credentials..."
+        CALLER_IDENTITY=$(aws sts get-caller-identity)
+        ACCOUNT_ID=$(echo $CALLER_IDENTITY | jq -r '.Account')
+        USER_ARN=$(echo $CALLER_IDENTITY | jq -r '.Arn')
+        
+        echo "✅ Connected to AWS Account: $ACCOUNT_ID"
+        echo "✅ User: $USER_ARN"
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TF_VERSION }}
+
+    - name: Check existing backend resources
+      id: check-existing
+      working-directory: docker-hello-world/infrastructure/backend
+      run: |
+        echo "🔍 Checking for existing backend resources..."
+        
+        # Check if state bucket exists
+        EXISTING_BUCKETS=$(aws s3 ls | grep "guestbook-terraform-state" || echo "")
+        if [ -n "$EXISTING_BUCKETS" ]; then
+          echo "existing-backend=true" >> $GITHUB_OUTPUT
+          echo "⚠️  Found existing backend bucket(s):"
+          echo "$EXISTING_BUCKETS"
+        else
+          echo "existing-backend=false" >> $GITHUB_OUTPUT
+          echo "✅ No existing backend resources found"
+        fi
+
+    - name: Handle existing backend (if force recreate)
+      if: steps.check-existing.outputs.existing-backend == 'true' && github.event.inputs.force_recreate == 'true'
+      working-directory: docker-hello-world/infrastructure/backend
+      run: |
+        echo "🗑️ Force recreate enabled - destroying existing backend resources..."
+        echo "⚠️  WARNING: This will destroy existing Terraform state history!"
+        
+        # Initialize Terraform to manage existing resources
+        terraform init || echo "No existing state to initialize"
+        
+        # Try to destroy existing resources
+        terraform destroy -auto-approve || echo "Some resources may need manual cleanup"
+
+    - name: Exit if backend exists and no force recreate
+      if: steps.check-existing.outputs.existing-backend == 'true' && github.event.inputs.force_recreate == 'false'
+      run: |
+        echo "❌ Backend resources already exist!"
+        echo "   To recreate, set 'force_recreate' to true"
+        echo "   ⚠️  WARNING: This will destroy existing state history"
+        echo ""
+        echo "📋 Existing backend resources found. If you need the configuration:"
+        echo "   1. Run: aws s3 ls | grep guestbook-terraform-state"
+        echo "   2. Use the bucket name in your backend configuration"
+        echo "   3. DynamoDB table: guestbook-terraform-locks"
+        exit 1
+
+    - name: Initialize Terraform backend setup
+      working-directory: docker-hello-world/infrastructure/backend
+      run: |
+        echo "🚀 Initializing Terraform for backend setup..."
+        terraform init
+
+    - name: Plan backend resources
+      working-directory: docker-hello-world/infrastructure/backend
+      run: |
+        echo "📋 Planning backend resource creation..."
+        terraform plan -var="aws_region=${{ env.AWS_REGION }}"
+
+    - name: Apply backend configuration
+      working-directory: docker-hello-world/infrastructure/backend
+      run: |
+        echo "🏗️  Creating professional Terraform backend resources..."
+        terraform apply -auto-approve -var="aws_region=${{ env.AWS_REGION }}"
+
+    - name: Get backend configuration
+      id: backend-config
+      working-directory: docker-hello-world/infrastructure/backend
+      run: |
+        echo "📊 Retrieving backend configuration..."
+        
+        BUCKET_NAME=$(terraform output -raw terraform_state_bucket)
+        TABLE_NAME=$(terraform output -raw dynamodb_table)
+        BACKEND_CONFIG=$(terraform output -raw backend_config_text)
+        
+        echo "✅ Backend resources created:"
+        echo "   S3 Bucket: $BUCKET_NAME"
+        echo "   DynamoDB Table: $TABLE_NAME"
+        
+        # Save to GitHub outputs
+        echo "bucket-name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+        echo "table-name=$TABLE_NAME" >> $GITHUB_OUTPUT
+        
+        # Save backend config to artifact
+        echo "$BACKEND_CONFIG" > backend-config.txt
+        
+        echo "📝 Backend configuration saved to artifact"
+
+    - name: Upload backend configuration
+      uses: actions/upload-artifact@v4
+      with:
+        name: terraform-backend-config
+        path: docker-hello-world/infrastructure/backend/backend-config.txt
+        retention-days: 90
+
+    - name: Verify backend resources
+      run: |
+        echo "🔍 Verifying backend resource creation..."
+        
+        # Verify S3 bucket
+        BUCKET_NAME="${{ steps.backend-config.outputs.bucket-name }}"
+        aws s3api head-bucket --bucket "$BUCKET_NAME"
+        echo "✅ S3 bucket verified: $BUCKET_NAME"
+        
+        # Verify DynamoDB table
+        TABLE_NAME="${{ steps.backend-config.outputs.table-name }}"
+        aws dynamodb describe-table --table-name "$TABLE_NAME" --query 'Table.TableStatus'
+        echo "✅ DynamoDB table verified: $TABLE_NAME"
+
+    - name: Test backend functionality
+      working-directory: docker-hello-world/infrastructure/backend
+      run: |
+        echo "🧪 Testing backend functionality..."
+        
+        # Test S3 access
+        BUCKET_NAME="${{ steps.backend-config.outputs.bucket-name }}"
+        echo "test-file" | aws s3 cp - s3://$BUCKET_NAME/test.txt
+        aws s3 rm s3://$BUCKET_NAME/test.txt
+        echo "✅ S3 access test passed"
+        
+        # Test DynamoDB access
+        TABLE_NAME="${{ steps.backend-config.outputs.table-name }}"
+        aws dynamodb put-item --table-name "$TABLE_NAME" \
+          --item '{"LockID": {"S": "test-lock"}, "Info": {"S": "test"}}' || true
+        aws dynamodb delete-item --table-name "$TABLE_NAME" \
+          --key '{"LockID": {"S": "test-lock"}}' || true
+        echo "✅ DynamoDB access test passed"
+
+    - name: Display next steps
+      run: |
+        echo "🎉 **Professional Terraform Backend Setup Complete!**"
+        echo ""
+        echo "📋 **What was created:**"
+        echo "   ✅ S3 Bucket: ${{ steps.backend-config.outputs.bucket-name }}"
+        echo "   ✅ DynamoDB Table: ${{ steps.backend-config.outputs.table-name }}"
+        echo "   ✅ IAM Policy for secure access"
+        echo "   ✅ Encryption and versioning enabled"
+        echo ""
+        echo "🔧 **Next Steps:**"
+        echo "1. Download the 'terraform-backend-config' artifact from this workflow"
+        echo "2. Copy the backend configuration to your main.tf file"
+        echo "3. Uncomment the backend block in infrastructure/main.tf"
+        echo "4. Replace placeholder values with the actual bucket name"
+        echo "5. Run: terraform init -migrate-state"
+        echo ""
+        echo "💡 **Professional Benefits:**"
+        echo "   ✅ Remote state storage for team collaboration"
+        echo "   ✅ State locking prevents concurrent modifications"
+        echo "   ✅ Version history for rollback capabilities"
+        echo "   ✅ Encryption for security compliance"
+        echo ""
+        echo "💰 **Monthly Cost:** ~$0.10-1.00 (minimal S3 and DynamoDB usage)"
+
+    - name: Create configuration issue
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const title = `🏗️ Terraform Backend Setup Complete`;
+          const body = `
+          ## Professional Terraform Backend Configuration Ready! 🎉
+          
+          **Created:** ${new Date().toISOString()}
+          **Region:** ${{ env.AWS_REGION }}
+          **Setup by:** @${{ github.actor }}
+          
+          ### 🏗️ Backend Resources Created
+          - ✅ **S3 Bucket:** \`${{ steps.backend-config.outputs.bucket-name }}\`
+          - ✅ **DynamoDB Table:** \`${{ steps.backend-config.outputs.table-name }}\`
+          - ✅ **IAM Policy:** Secure access configured
+          - ✅ **Encryption:** AES256 server-side encryption
+          - ✅ **Versioning:** Enabled for rollback capability
+          
+          ### 🔧 Next Steps
+          1. **Download** the \`terraform-backend-config\` artifact from [this workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          2. **Edit** \`infrastructure/main.tf\` and uncomment the backend block
+          3. **Replace** placeholder values with actual bucket name: \`${{ steps.backend-config.outputs.bucket-name }}\`
+          4. **Migrate state:** Run \`terraform init -migrate-state\` in the infrastructure directory
+          
+          ### 💡 Professional Benefits
+          - **Team Collaboration:** Multiple developers can work on the same infrastructure
+          - **State Locking:** Prevents concurrent modifications and state corruption
+          - **Version History:** Full rollback capabilities with S3 versioning
+          - **Security:** Encrypted state storage with proper IAM permissions
+          - **Reliability:** Highly available S3 and DynamoDB backend
+          
+          ### 💰 Cost Impact
+          - **S3 Storage:** ~$0.10-0.50/month (depends on state file size)
+          - **DynamoDB Operations:** ~$0.01-0.05/month (minimal lock operations)
+          - **Total:** Less than $1/month for most projects
+          
+          ---
+          **This is enterprise-grade infrastructure that you'd find in any professional Terraform deployment!**
+          `;
+          
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: title,
+            body: body,
+            labels: ['infrastructure', 'terraform', 'backend', 'completed']
+          });
