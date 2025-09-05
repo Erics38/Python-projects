@@ -32,14 +32,8 @@ cpu_alarm_threshold       = 85     # Higher threshold for cost optimization
 memory_alarm_threshold    = 90     # Higher threshold for cost optimization
 response_time_threshold   = 3.0    # Relaxed for demo environment
 
-# Security Hardening (Basic for Demo)
-enable_https                    = false       # No custom domain for demo
-domain_name                    = ""           # Using ALB DNS name
-enable_security_headers        = true         # Enable basic security headers
-rate_limit_per_5min           = 2000         # Higher limit for demo
-blocked_countries             = []           # No geo-blocking for demo
-allowed_ips                   = []           # No IP restrictions for demo
-waf_blocked_requests_threshold = 200         # Higher threshold for demo
+# Security Hardening variables removed - module disabled for demo
+# These will be restored when security_hardening module is re-enabled
 
 # Deployment Configuration
 health_check_grace_period           = 60
