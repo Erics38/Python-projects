@@ -175,7 +175,7 @@ module "monitoring" {
   frontend_service_name    = module.ecs.frontend_service_name
   backend_service_name     = module.ecs.backend_service_name
   database_identifier      = module.database.db_instance_id
-  load_balancer_arn_suffix = module.load_balancer.load_balancer_arn_suffix
+  load_balancer_arn_suffix = module.load_balancer.arn_suffix
   
   # Monitoring configuration
   log_retention_days       = var.log_retention_days
@@ -192,7 +192,7 @@ module "security_hardening" {
   
   environment         = var.environment
   aws_region         = var.aws_region
-  load_balancer_arn  = module.load_balancer.load_balancer_arn
+  load_balancer_arn  = module.load_balancer.arn
   
   # Security configuration
   enable_https                    = var.enable_https

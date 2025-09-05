@@ -17,18 +17,8 @@ resource "aws_ecs_cluster" "main" {
     value = "enabled"            # Provides container-level metrics in CloudWatch
   }
   
-  # CAPACITY PROVIDERS: Define how containers get compute resources
-  # Fargate = AWS manages servers, you just run containers
-  # EC2 = You manage servers, containers run on your instances
-  capacity_providers = ["FARGATE", "FARGATE_SPOT"]
-  
-  # DEFAULT CAPACITY PROVIDER STRATEGY
-  # This determines how new services are launched by default
-  default_capacity_provider_strategy {
-    capacity_provider = "FARGATE"      # Use regular Fargate by default
-    weight            = 100            # 100% of tasks use this provider
-    base              = 1              # Always keep at least 1 task on Fargate
-  }
+  # Basic ECS cluster configuration
+  # Capacity providers will be configured separately
   
   # OPTIONAL: Use Fargate Spot for cost savings (up to 70% cheaper)
   # Spot instances can be interrupted, so only use for fault-tolerant workloads
@@ -43,6 +33,19 @@ resource "aws_ecs_cluster" "main" {
     Type = "ECS Cluster"
     Purpose = "Container orchestration for web application"
   })
+}
+
+# CAPACITY PROVIDERS: Configure how containers get compute resources
+resource "aws_ecs_cluster_capacity_providers" "main" {
+  cluster_name = aws_ecs_cluster.main.name
+
+  capacity_providers = ["FARGATE", "FARGATE_SPOT"]
+
+  default_capacity_provider_strategy {
+    base              = 1
+    weight            = 100
+    capacity_provider = "FARGATE"
+  }
 }
 
 # TEACHING POINT: Task Definition

@@ -52,7 +52,6 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy" {
 resource "aws_iam_role_policy" "ecs_execution_custom_policy" {
   name_prefix = "${var.name_prefix}-ecs-execution-custom-"
   role        = aws_iam_role.ecs_execution_role.id
-  description = "Additional permissions for ECS task execution"
   
   # PERMISSIONS POLICY: What actions this role can perform
   policy = jsonencode({
@@ -149,7 +148,6 @@ resource "aws_iam_role" "ecs_task_role" {
 resource "aws_iam_role_policy" "ecs_task_custom_policy" {
   name_prefix = "${var.name_prefix}-ecs-task-custom-"
   role        = aws_iam_role.ecs_task_role.id
-  description = "Application-specific AWS service permissions"
   
   policy = jsonencode({
     Version = "2012-10-17"

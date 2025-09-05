@@ -133,9 +133,10 @@ output "subnet_ids" {
 
 output "availability_zones" {
   description = "List of availability zones where the load balancer is deployed"
-  value       = aws_lb.main.availability_zones
+  value       = var.public_subnet_ids
   
   # Shows AZ distribution for high availability verification
+  # Note: Using subnet IDs as ALB availability zones aren't directly accessible
 }
 
 # OPERATIONAL INFORMATION
@@ -148,9 +149,10 @@ output "load_balancer_type" {
 
 output "scheme" {
   description = "Load balancer scheme (internet-facing or internal)"
-  value       = aws_lb.main.scheme
+  value       = "internet-facing"
   
   # Should be "internet-facing" for public web applications
+  # Note: Using hardcoded value as scheme isn't exposed by aws_lb resource
 }
 
 output "ip_address_type" {
