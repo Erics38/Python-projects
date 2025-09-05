@@ -61,9 +61,9 @@ resource "random_password" "db_password" {
 locals {
   name_prefix = "guestbook-${var.environment}"
   
-  # Network configuration
+  # Network configuration - SIMPLIFIED FOR DEMO
   vpc_cidr = "10.0.0.0/16"
-  azs      = slice(data.aws_availability_zones.available.names, 0, 2)
+  azs      = slice(data.aws_availability_zones.available.names, 0, 1)  # Single AZ for demo
   
   # Container configuration
   container_port = 3000
@@ -186,24 +186,25 @@ module "monitoring" {
   response_time_threshold = var.response_time_threshold
 }
 
-# Security Hardening (WAF, HTTPS, Security Headers)
-module "security_hardening" {
-  source = "./modules/security_hardening"
-  
-  environment         = var.environment
-  aws_region         = var.aws_region
-  load_balancer_arn  = module.load_balancer.arn
-  
-  # Security configuration
-  enable_https                    = var.enable_https
-  domain_name                    = var.domain_name
-  enable_security_headers        = var.enable_security_headers
-  rate_limit_per_5min           = var.rate_limit_per_5min
-  blocked_countries             = var.blocked_countries
-  allowed_ips                   = var.allowed_ips
-  waf_blocked_requests_threshold = var.waf_blocked_requests_threshold
-  
-  # Integration with monitoring
-  sns_topic_arn      = module.monitoring.sns_topic_arn
-  log_retention_days = var.log_retention_days
-}
+# Security Hardening (WAF, HTTPS, Security Headers) - DISABLED FOR DEMO
+# Uncomment when ready for production deployment
+# module "security_hardening" {
+#   source = "./modules/security_hardening"
+#   
+#   environment         = var.environment
+#   aws_region         = var.aws_region
+#   load_balancer_arn  = module.load_balancer.arn
+#   
+#   # Security configuration
+#   enable_https                    = var.enable_https
+#   domain_name                    = var.domain_name
+#   enable_security_headers        = var.enable_security_headers
+#   rate_limit_per_5min           = var.rate_limit_per_5min
+#   blocked_countries             = var.blocked_countries
+#   allowed_ips                   = var.allowed_ips
+#   waf_blocked_requests_threshold = var.waf_blocked_requests_threshold
+#   
+#   # Integration with monitoring
+#   sns_topic_arn      = module.monitoring.sns_topic_arn
+#   log_retention_days = var.log_retention_days
+# }

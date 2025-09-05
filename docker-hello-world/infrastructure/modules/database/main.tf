@@ -26,26 +26,24 @@ resource "aws_db_parameter_group" "main" {
   name_prefix = "${var.name_prefix}-db-params-"
   description = "Custom parameter group for guestbook PostgreSQL database"
 
-  # PERFORMANCE TUNING: These parameters can be adjusted based on workload
-  parameter {
-    name  = "shared_preload_libraries"
-    value = "pg_stat_statements"  # Enable query statistics for monitoring
-  }
-
+  # SIMPLIFIED PARAMETERS FOR DEMO - Only dynamic parameters
   parameter {
     name  = "log_statement"
     value = "all"  # Log all SQL statements (disable in production for performance)
+    apply_method = "immediate"
   }
 
   parameter {
     name  = "log_min_duration_statement"
     value = "1000"  # Log queries taking longer than 1 second
+    apply_method = "immediate"
   }
 
   # CONNECTION MANAGEMENT: Adjust based on expected connection load
   parameter {
     name  = "max_connections"
     value = "100"  # Default is usually fine for small applications
+    apply_method = "pending-reboot"  # This parameter requires restart
   }
 
   tags = merge(var.tags, {
