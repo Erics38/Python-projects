@@ -103,7 +103,7 @@ output "task_role_name" {
 # CAPACITY PROVIDER INFORMATION
 output "capacity_providers" {
   description = "List of capacity providers available to the cluster"
-  value       = aws_ecs_cluster.main.capacity_providers
+  value       = aws_ecs_cluster_capacity_providers.main.capacity_providers
   
   # Shows whether Fargate, Fargate Spot, or EC2 are available
 }

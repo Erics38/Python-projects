@@ -303,13 +303,13 @@ resource "aws_ecs_service" "frontend" {
   deployment_configuration {
     maximum_percent         = 200  # Can have up to 200% of desired during deployment
     minimum_healthy_percent = 100  # Must maintain 100% healthy during deployment
-    
-    # DEPLOYMENT CIRCUIT BREAKER
-    # Automatically rolls back failed deployments
-    deployment_circuit_breaker {
-      enable   = true
-      rollback = true  # Auto-rollback on failure
-    }
+  }
+  
+  # DEPLOYMENT CIRCUIT BREAKER
+  # Automatically rolls back failed deployments
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true  # Auto-rollback on failure
   }
   
   # DEPLOYMENT CONTROLLER TYPE
@@ -381,11 +381,11 @@ resource "aws_ecs_service" "backend" {
   deployment_configuration {
     maximum_percent         = 200
     minimum_healthy_percent = 100
-    
-    deployment_circuit_breaker {
-      enable   = true
-      rollback = true
-    }
+  }
+  
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
   }
   
   deployment_controller {
