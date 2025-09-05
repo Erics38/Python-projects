@@ -124,7 +124,7 @@ resource "aws_wafv2_web_acl" "main" {
 
   # Rule 5: Geo-blocking Rule (Optional)
   dynamic "rule" {
-    for_each = var.blocked_countries != [] ? [1] : []
+    for_each = length(var.blocked_countries) > 0 ? [1] : []
     content {
       name     = "GeoBlockingRule"
       priority = 5
