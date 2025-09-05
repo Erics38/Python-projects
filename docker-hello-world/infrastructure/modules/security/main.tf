@@ -192,24 +192,13 @@ resource "aws_security_group" "waf" {
 }
 
 # Security group rules for monitoring and logging
-resource "aws_security_group_rule" "ecs_cloudwatch_logs" {
+resource "aws_security_group_rule" "ecs_aws_apis" {
   type        = "egress"
   from_port   = 443
   to_port     = 443
   protocol    = "tcp"
   cidr_blocks = ["0.0.0.0/0"]
-  description = "CloudWatch Logs API access"
-
-  security_group_id = aws_security_group.ecs.id
-}
-
-resource "aws_security_group_rule" "ecs_parameter_store" {
-  type        = "egress"
-  from_port   = 443
-  to_port     = 443
-  protocol    = "tcp"
-  cidr_blocks = ["0.0.0.0/0"]
-  description = "Parameter Store/Secrets Manager API access"
+  description = "AWS APIs access - CloudWatch Logs, Parameter Store, Secrets Manager"
 
   security_group_id = aws_security_group.ecs.id
 }

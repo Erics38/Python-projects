@@ -35,11 +35,11 @@ resource "aws_iam_role" "ecs_execution_role" {
     ]
   })
   
-  tags = merge(var.tags, {
+  tags = {
     Name = "${var.name_prefix}-ecs-execution-role"
-    Type = "IAM Role"
-    Purpose = "ECS task execution infrastructure operations"
-  })
+    Environment = var.environment
+    ManagedBy = "Terraform"
+  }
 }
 
 # ATTACH AWS MANAGED POLICY: Basic ECS execution permissions
@@ -137,11 +137,11 @@ resource "aws_iam_role" "ecs_task_role" {
     ]
   })
   
-  tags = merge(var.tags, {
+  tags = {
     Name = "${var.name_prefix}-ecs-task-role"
-    Type = "IAM Role"
-    Purpose = "Application runtime permissions"
-  })
+    Environment = var.environment
+    ManagedBy = "Terraform"
+  }
 }
 
 # APPLICATION-SPECIFIC PERMISSIONS
@@ -226,11 +226,11 @@ resource "aws_iam_role" "ecs_autoscaling_role" {
     ]
   })
   
-  tags = merge(var.tags, {
+  tags = {
     Name = "${var.name_prefix}-ecs-autoscaling-role"
-    Type = "IAM Role"
-    Purpose = "ECS service auto-scaling"
-  })
+    Environment = var.environment
+    ManagedBy = "Terraform"
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_autoscaling_role_policy" {
