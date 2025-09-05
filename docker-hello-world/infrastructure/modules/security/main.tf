@@ -26,14 +26,7 @@ resource "aws_security_group" "alb" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Allow all outbound traffic to ECS tasks
-  egress {
-    description     = "HTTP to ECS tasks"
-    from_port       = 3000
-    to_port         = 3000
-    protocol        = "tcp"
-    security_groups = [aws_security_group.ecs.id]
-  }
+  # Outbound traffic to ECS - defined as separate rule to avoid circular dependency
 
   # Allow outbound HTTPS for health checks and AWS API calls
   egress {
@@ -61,14 +54,7 @@ resource "aws_security_group" "ecs" {
   vpc_id      = var.vpc_id
   description = "Security group for ECS tasks"
 
-  # Allow traffic from ALB
-  ingress {
-    description     = "HTTP from ALB"
-    from_port       = 3000
-    to_port         = 3000
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
-  }
+  # Traffic from ALB - defined as separate rule to avoid circular dependency
 
   # Allow communication between ECS tasks (for service mesh, logging, etc.)
   ingress {
@@ -238,4 +224,28 @@ resource "aws_security_group_rule" "ecs_kms" {
   description = "KMS API access for secrets decryption"
 
   security_group_id = aws_security_group.ecs.id
+}
+
+# Separate rules to avoid circular dependencies between ALB and ECS security groups
+
+# Allow ALB to send traffic to ECS tasks
+resource "aws_security_group_rule" "alb_to_ecs" {
+  type                     = "egress"
+  from_port                = 3000
+  to_port                  = 3000
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.ecs.id
+  security_group_id        = aws_security_group.alb.id
+  description              = "HTTP to ECS tasks"
+}
+
+# Allow ECS tasks to receive traffic from ALB
+resource "aws_security_group_rule" "ecs_from_alb" {
+  type                     = "ingress"
+  from_port                = 3000
+  to_port                  = 3000
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.alb.id
+  security_group_id        = aws_security_group.ecs.id
+  description              = "HTTP from ALB"
 }
