@@ -129,27 +129,8 @@ output "monitoring_summary" {
   value       = module.monitoring.monitoring_summary
 }
 
-# Security and Hardening - DISABLED FOR DEMO
-# Uncomment when security hardening module is re-enabled
-# output "waf_web_acl_arn" {
-#   description = "ARN of the WAF Web ACL"
-#   value       = module.security_hardening.waf_web_acl_arn
-# }
-
-# output "ssl_certificate_arn" {
-#   description = "ARN of the SSL certificate"
-#   value       = module.security_hardening.ssl_certificate_arn
-# }
-
-# output "security_features_summary" {
-#   description = "Summary of security features enabled"
-#   value       = module.security_hardening.security_features_summary
-# }
-
-# output "waf_rules_summary" {
-#   description = "Summary of WAF rules configured"
-#   value       = module.security_hardening.waf_rules_summary
-# }
+# Security and Hardening outputs removed for demo
+# Will be restored when security_hardening module is re-enabled
 
 # Cost Estimation
 output "estimated_monthly_cost" {
