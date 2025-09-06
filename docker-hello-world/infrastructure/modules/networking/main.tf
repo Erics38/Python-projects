@@ -156,6 +156,9 @@ resource "aws_vpc_endpoint" "ecr_dkr" {
   security_group_ids  = [aws_security_group.vpc_endpoints.id]
   private_dns_enabled = true
 
+  # Ensure VPC endpoint is destroyed before subnets
+  depends_on = [aws_subnet.private]
+
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-ecr-dkr-endpoint"
     Type = "VPC Endpoint"
@@ -169,6 +172,9 @@ resource "aws_vpc_endpoint" "ecr_api" {
   subnet_ids          = aws_subnet.private[*].id
   security_group_ids  = [aws_security_group.vpc_endpoints.id]
   private_dns_enabled = true
+
+  # Ensure VPC endpoint is destroyed before subnets
+  depends_on = [aws_subnet.private]
 
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-ecr-api-endpoint"
