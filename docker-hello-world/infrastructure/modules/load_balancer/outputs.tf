@@ -95,7 +95,7 @@ output "http_listener_arn" {
 
 output "https_listener_arn" {
   description = "ARN of the HTTPS listener (port 443)"
-  value       = aws_lb_listener.https.arn
+  value       = length(aws_lb_listener.https) > 0 ? aws_lb_listener.https[0].arn : null
   
   # Primary listener for application traffic
   # Used for creating additional routing rules
@@ -111,7 +111,7 @@ output "security_group_id" {
 
 output "ssl_policy" {
   description = "SSL policy used by HTTPS listener"
-  value       = aws_lb_listener.https.ssl_policy
+  value       = length(aws_lb_listener.https) > 0 ? aws_lb_listener.https[0].ssl_policy : null
   
   # Current SSL/TLS policy - important for security compliance
 }
