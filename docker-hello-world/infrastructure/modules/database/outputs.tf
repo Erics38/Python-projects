@@ -81,7 +81,7 @@ output "db_cloudwatch_log_groups" {
 
 output "monitoring_role_arn" {
   description = "ARN of the IAM role used for enhanced monitoring"
-  value       = var.enable_performance_insights ? aws_iam_role.rds_enhanced_monitoring[0].arn : null
+  value       = aws_iam_role.rds_enhanced_monitoring.arn
   
   # This role allows RDS to publish detailed metrics to CloudWatch
 }
