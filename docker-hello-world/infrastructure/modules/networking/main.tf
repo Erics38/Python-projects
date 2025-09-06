@@ -182,6 +182,23 @@ resource "aws_vpc_endpoint" "ecr_api" {
   })
 }
 
+resource "aws_vpc_endpoint" "secretsmanager" {
+  vpc_id              = aws_vpc.main.id
+  service_name        = "com.amazonaws.${data.aws_region.current.name}.secretsmanager"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  private_dns_enabled = true
+
+  # Ensure VPC endpoint is destroyed before subnets
+  depends_on = [aws_subnet.private]
+
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-secretsmanager-endpoint"
+    Type = "VPC Endpoint"
+  })
+}
+
 # Security Group for VPC Endpoints
 resource "aws_security_group" "vpc_endpoints" {
   name_prefix = "${var.name_prefix}-vpc-endpoints-"
