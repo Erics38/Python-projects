@@ -247,6 +247,11 @@ jobs:
         ls -la *.tf
         echo "Environment files:"
         ls -la environments/
+        echo "🔄 Refreshing Terraform state to sync with AWS..."
+        terraform refresh \
+          -var-file="environments/${{ github.event.inputs.deploy_environment }}.tfvars" \
+          -var="frontend_image=${{ needs.build-and-push.outputs.frontend-image }}" \
+          -var="backend_image=${{ needs.build-and-push.outputs.backend-image }}"
         terraform plan -input=false \
           -var-file="environments/${{ github.event.inputs.deploy_environment }}.tfvars" \
           -var="frontend_image=${{ needs.build-and-push.outputs.frontend-image }}" \
