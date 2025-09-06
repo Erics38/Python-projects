@@ -249,6 +249,15 @@ resource "aws_ecs_task_definition" "backend" {
   })
 }
 
+# DEPENDENCY MANAGEMENT: Ensure load balancer is ready before ECS services
+resource "null_resource" "lb_ready" {
+  # This resource will be created after the HTTP listener ARN is available
+  # ECS services depend on this to ensure proper ordering
+  triggers = {
+    http_listener_arn = var.http_listener_arn
+  }
+}
+
 # TEACHING POINT: ECS Service
 # A service ensures a specified number of tasks are always running
 # It handles: deployment, health checks, load balancer registration, auto-scaling
@@ -261,11 +270,8 @@ resource "aws_ecs_service" "frontend" {
   # DESIRED STATE
   desired_count = var.desired_count  # How many containers should be running
   
-  # Ensure load balancer listener is fully configured before starting service
-  # This prevents "target group not associated with load balancer" errors
-  lifecycle {
-    replace_triggered_by = [var.http_listener_arn]
-  }
+  # Wait for load balancer to be fully configured
+  depends_on = [null_resource.lb_ready]
   
   # LAUNCH TYPE vs CAPACITY PROVIDER
   # launch_type = "FARGATE"  # Old way: specify launch type directly
@@ -363,10 +369,8 @@ resource "aws_ecs_service" "backend" {
   task_definition = aws_ecs_task_definition.backend.arn
   desired_count   = var.desired_count
   
-  # Ensure load balancer listener is fully configured before starting service
-  lifecycle {
-    replace_triggered_by = [var.http_listener_arn]
-  }
+  # Wait for load balancer to be fully configured
+  depends_on = [null_resource.lb_ready]
   
   capacity_provider_strategy {
     capacity_provider = "FARGATE"
