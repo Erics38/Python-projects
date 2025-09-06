@@ -261,6 +261,12 @@ resource "aws_ecs_service" "frontend" {
   # DESIRED STATE
   desired_count = var.desired_count  # How many containers should be running
   
+  # Ensure load balancer listener is fully configured before starting service
+  # This prevents "target group not associated with load balancer" errors
+  lifecycle {
+    replace_triggered_by = [var.http_listener_arn]
+  }
+  
   # LAUNCH TYPE vs CAPACITY PROVIDER
   # launch_type = "FARGATE"  # Old way: specify launch type directly
   
@@ -356,6 +362,11 @@ resource "aws_ecs_service" "backend" {
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.backend.arn
   desired_count   = var.desired_count
+  
+  # Ensure load balancer listener is fully configured before starting service
+  lifecycle {
+    replace_triggered_by = [var.http_listener_arn]
+  }
   
   capacity_provider_strategy {
     capacity_provider = "FARGATE"

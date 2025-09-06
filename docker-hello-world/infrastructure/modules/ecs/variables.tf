@@ -43,6 +43,14 @@ variable "target_group_arn" {
   # ECS automatically registers/deregisters container IPs with this target group
 }
 
+variable "http_listener_arn" {
+  description = "ARN of the HTTP listener for dependency management"
+  type        = string
+  default     = ""
+  
+  # Used to ensure load balancer is fully configured before ECS service starts
+}
+
 # DATABASE CONNECTION DETAILS
 variable "db_host" {
   description = "Database host endpoint for application connection"

@@ -125,6 +125,7 @@ module "ecs" {
   private_subnet_ids = module.networking.private_subnet_ids
   ecs_sg_id          = module.security.ecs_sg_id
   target_group_arn   = module.load_balancer.target_group_arn
+  http_listener_arn  = module.load_balancer.http_listener_arn
   
   # Database connection
   db_host       = module.database.db_endpoint
