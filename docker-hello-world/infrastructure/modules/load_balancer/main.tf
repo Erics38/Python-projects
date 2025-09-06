@@ -138,14 +138,28 @@ resource "aws_lb_listener" "http" {
   port              = "80"
   protocol          = "HTTP"
   
-  # SECURITY: Redirect all HTTP traffic to HTTPS
+  # CONDITIONAL ACTION: Forward to app if no HTTPS, redirect if HTTPS enabled
   default_action {
-    type = "redirect"
+    type             = var.domain_name != "" ? "redirect" : "forward"
     
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"  # Permanent redirect (browsers will cache this)
+    # Forward to target group when HTTPS disabled (demo mode)
+    dynamic "forward" {
+      for_each = var.domain_name == "" ? [1] : []
+      content {
+        target_group {
+          arn = aws_lb_target_group.app.arn
+        }
+      }
+    }
+    
+    # Redirect to HTTPS when HTTPS enabled (production mode)  
+    dynamic "redirect" {
+      for_each = var.domain_name != "" ? [1] : []
+      content {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
     }
   }
   
