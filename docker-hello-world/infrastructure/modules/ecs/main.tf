@@ -294,9 +294,9 @@ resource "aws_ecs_service" "frontend" {
   
   # NETWORK CONFIGURATION (required for Fargate)
   network_configuration {
-    subnets          = var.private_subnet_ids    # Tasks run in private subnets
+    subnets          = var.public_subnet_ids   # Use public subnets for demo (internet access)    # Tasks run in private subnets
     security_groups  = [var.ecs_sg_id]          # Security group allows ALB traffic
-    assign_public_ip = false                    # No public IPs (more secure)
+    assign_public_ip = true                     # Enable public IPs for demo (AWS API access)
   }
   
   # LOAD BALANCER INTEGRATION
@@ -377,9 +377,9 @@ resource "aws_ecs_service" "backend" {
   platform_version = "LATEST"
   
   network_configuration {
-    subnets          = var.private_subnet_ids
+    subnets          = var.public_subnet_ids   # Use public subnets for demo (internet access)
     security_groups  = [var.ecs_sg_id]
-    assign_public_ip = false
+    assign_public_ip = true                     # Enable public IPs for demo (AWS API access)
   }
   
   # BACKEND CONNECTS TO ALB TOO

@@ -19,6 +19,17 @@ variable "private_subnet_ids" {
     condition     = length(var.private_subnet_ids) >= 1
     error_message = "ECS requires at least 1 private subnet."
   }
+}
+
+variable "public_subnet_ids" {
+  description = "List of public subnet IDs for demo mode (internet access)"
+  type        = list(string)
+  default     = []
+  
+  validation {
+    condition     = length(var.public_subnet_ids) >= 0
+    error_message = "Public subnet IDs must be a valid list."
+  }
   
   # TEACHING POINT: Why Private Subnets?
   # - Security: Containers don't get public IP addresses
