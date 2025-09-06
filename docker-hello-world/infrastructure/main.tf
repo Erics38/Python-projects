@@ -14,20 +14,14 @@ terraform {
     }
   }
 
-  # Remote state backend - configured after running backend setup
-  # To enable remote state:
-  # 1. cd backend && terraform apply
-  # 2. Copy backend configuration from output
-  # 3. Uncomment and update the backend block below
-  # 4. Run: terraform init -migrate-state
-  #
-  # backend "s3" {
-  #   bucket         = "guestbook-terraform-state-XXXX"
-  #   key            = "guestbook/terraform.tfstate"
-  #   region         = "us-east-1"
-  #   encrypt        = true
-  #   dynamodb_table = "guestbook-terraform-locks"
-  # }
+  # Remote state backend - configured with backend deployment
+  backend "s3" {
+    bucket         = "guestbook-terraform-state-3a778cf7"
+    key            = "guestbook/terraform.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+    dynamodb_table = "guestbook-terraform-locks"
+  }
 }
 
 # Configure the AWS Provider
