@@ -171,6 +171,30 @@ jobs:
           fi
         done
 
+    - name: Clean up Secrets Manager secrets
+      run: |
+        echo "🔐 Cleaning up Secrets Manager secrets..."
+        
+        # Get all guestbook-related secrets (including scheduled for deletion)
+        SECRETS=$(aws secretsmanager list-secrets --include-planned-deletion \
+          --query 'SecretList[?contains(Name, `guestbook`)].Name' \
+          --output text || echo "")
+        
+        if [ -n "$SECRETS" ]; then
+          echo "Found secrets: $SECRETS"
+          
+          for secret in $SECRETS; do
+            echo "Force deleting secret: $secret"
+            aws secretsmanager delete-secret \
+              --secret-id "$secret" \
+              --force-delete-without-recovery || true
+          done
+          
+          echo "✅ Secrets Manager cleaned"
+        else
+          echo "No guestbook secrets found"
+        fi
+
     - name: Clean up Parameter Store parameters
       run: |
         echo "📋 Cleaning up Parameter Store parameters..."
