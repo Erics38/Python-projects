@@ -317,9 +317,100 @@ jobs:
         echo "cluster-name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
         echo "environment=${{ github.event.inputs.deploy_environment }}" >> $GITHUB_OUTPUT
 
+    - name: Health Check and Troubleshooting
+      run: |
+        echo "🔍 Performing comprehensive health checks..."
+        APPLICATION_URL="${{ steps.terraform-outputs.outputs.application-url }}"
+        CLUSTER_NAME="${{ steps.terraform-outputs.outputs.cluster-name }}"
+        
+        echo "## 🏥 Health Check Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Check ECS service status
+        echo "### 📦 ECS Services Status"
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        aws ecs describe-services --cluster $CLUSTER_NAME --services guestbook-${{ github.event.inputs.deploy_environment }}-frontend guestbook-${{ github.event.inputs.deploy_environment }}-backend \
+          --query 'services[*].{Name:serviceName,Running:runningCount,Desired:desiredCount,Status:status}' \
+          --output table >> $GITHUB_STEP_SUMMARY || echo "ECS services check failed" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Check target health
+        echo "### 🎯 Load Balancer Target Health"
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        
+        # Frontend target health
+        FRONTEND_TG_ARN=$(aws elbv2 describe-target-groups --names guestbook-${{ github.event.inputs.deploy_environment }}-frontend-tg --query 'TargetGroups[0].TargetGroupArn' --output text)
+        echo "Frontend Targets:" >> $GITHUB_STEP_SUMMARY
+        aws elbv2 describe-target-health --target-group-arn $FRONTEND_TG_ARN \
+          --query 'TargetHealthDescriptions[*].{Target:Target.Id,Port:Target.Port,Health:TargetHealth.State,Reason:TargetHealth.Reason}' \
+          --output table >> $GITHUB_STEP_SUMMARY || echo "Frontend target check failed" >> $GITHUB_STEP_SUMMARY
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Backend target health  
+        BACKEND_TG_ARN=$(aws elbv2 describe-target-groups --names guestbook-${{ github.event.inputs.deploy_environment }}-backend-tg --query 'TargetGroups[0].TargetGroupArn' --output text)
+        echo "Backend Targets:" >> $GITHUB_STEP_SUMMARY
+        aws elbv2 describe-target-health --target-group-arn $BACKEND_TG_ARN \
+          --query 'TargetHealthDescriptions[*].{Target:Target.Id,Port:Target.Port,Health:TargetHealth.State,Reason:TargetHealth.Reason}' \
+          --output table >> $GITHUB_STEP_SUMMARY || echo "Backend target check failed" >> $GITHUB_STEP_SUMMARY
+        
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Check Parameter Store parameters
+        echo "### 📋 Parameter Store Configuration"
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        aws ssm describe-parameters --query 'Parameters[?contains(Name,`guestbook`)].{Name:Name,Type:Type}' --output table >> $GITHUB_STEP_SUMMARY || echo "Parameter Store check failed" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Check recent logs for errors
+        echo "### 📝 Recent Backend Logs (Last 10 minutes)"
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        
+        # Get latest backend log stream
+        LATEST_LOG_STREAM=$(aws logs describe-log-streams \
+          --log-group-name "/aws/ecs/guestbook-${{ github.event.inputs.deploy_environment }}" \
+          --order-by LastEventTime --descending --max-items 1 \
+          --query 'logStreams[?contains(logStreamName,`backend`)].logStreamName' \
+          --output text 2>/dev/null || echo "")
+        
+        if [ -n "$LATEST_LOG_STREAM" ] && [ "$LATEST_LOG_STREAM" != "None" ]; then
+          echo "Latest backend log stream: $LATEST_LOG_STREAM" >> $GITHUB_STEP_SUMMARY
+          
+          # Get recent log events (last 10 minutes)
+          START_TIME=$(($(date +%s) * 1000 - 600000))
+          aws logs get-log-events \
+            --log-group-name "/aws/ecs/guestbook-${{ github.event.inputs.deploy_environment }}" \
+            --log-stream-name "$LATEST_LOG_STREAM" \
+            --start-time $START_TIME \
+            --query 'events[?message].[timestamp,message]' \
+            --output text | head -20 >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "No recent backend logs found" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "No backend log streams found" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Test application connectivity
+        echo "### 🌐 Application Connectivity Test"
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        
+        echo "Testing frontend..." >> $GITHUB_STEP_SUMMARY
+        FRONTEND_STATUS=$(curl -s -w "HTTP Status: %{http_code}" -m 10 "$APPLICATION_URL" 2>&1 | tail -1 || echo "Connection failed")
+        echo "Frontend: $FRONTEND_STATUS" >> $GITHUB_STEP_SUMMARY
+        
+        echo "Testing backend health..." >> $GITHUB_STEP_SUMMARY
+        BACKEND_STATUS=$(curl -s -w "HTTP Status: %{http_code}" -m 10 "$APPLICATION_URL/api/health" 2>&1 | tail -1 || echo "Connection failed")
+        echo "Backend: $BACKEND_STATUS" >> $GITHUB_STEP_SUMMARY
+        
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
     - name: Deployment Summary
       run: |
-        echo "## 🚀 Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+        echo "## 🚀 Deployment Complete!" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Environment:** ${{ github.event.inputs.deploy_environment }}" >> $GITHUB_STEP_SUMMARY
         echo "**Application URL:** ${{ steps.terraform-outputs.outputs.application-url }}" >> $GITHUB_STEP_SUMMARY
@@ -328,6 +419,13 @@ jobs:
         echo "### Container Images" >> $GITHUB_STEP_SUMMARY
         echo "- **Frontend:** \`${{ needs.build-and-push.outputs.frontend-image }}\`" >> $GITHUB_STEP_SUMMARY
         echo "- **Backend:** \`${{ needs.build-and-push.outputs.backend-image }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔍 Troubleshooting" >> $GITHUB_STEP_SUMMARY
+        echo "If services are unhealthy, check the health check results above." >> $GITHUB_STEP_SUMMARY
+        echo "Common issues:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Parameter Store permissions** - Backend needs SSM access" >> $GITHUB_STEP_SUMMARY
+        echo "- **Database connectivity** - Backend needs SSL config for RDS" >> $GITHUB_STEP_SUMMARY
+        echo "- **Target registration** - Services take 2-3 minutes to become healthy" >> $GITHUB_STEP_SUMMARY
 
   terraform-destroy:
     name: 🗑️ Destroy Infrastructure
