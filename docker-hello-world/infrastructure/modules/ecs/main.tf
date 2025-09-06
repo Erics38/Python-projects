@@ -270,9 +270,6 @@ resource "aws_ecs_service" "frontend" {
   # DESIRED STATE
   desired_count = var.desired_count  # How many containers should be running
   
-  # Wait for load balancer to be fully configured
-  depends_on = [null_resource.lb_ready]
-  
   # LAUNCH TYPE vs CAPACITY PROVIDER
   # launch_type = "FARGATE"  # Old way: specify launch type directly
   
@@ -351,9 +348,11 @@ resource "aws_ecs_service" "frontend" {
     ]
   }
   
-  # DEPENDENCIES
-  # Ensure load balancer is ready before creating service
-  depends_on = [aws_iam_role_policy_attachment.ecs_execution_role_policy]
+  # DEPENDENCIES: Both IAM permissions and load balancer must be ready
+  depends_on = [
+    aws_iam_role_policy_attachment.ecs_execution_role_policy,
+    null_resource.lb_ready
+  ]
   
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-frontend-service"
@@ -368,9 +367,6 @@ resource "aws_ecs_service" "backend" {
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.backend.arn
   desired_count   = var.desired_count
-  
-  # Wait for load balancer to be fully configured
-  depends_on = [null_resource.lb_ready]
   
   capacity_provider_strategy {
     capacity_provider = "FARGATE"
@@ -413,7 +409,11 @@ resource "aws_ecs_service" "backend" {
     ignore_changes = [task_definition, desired_count]
   }
   
-  depends_on = [aws_iam_role_policy_attachment.ecs_execution_role_policy]
+  # DEPENDENCIES: Both IAM permissions and load balancer must be ready  
+  depends_on = [
+    aws_iam_role_policy_attachment.ecs_execution_role_policy,
+    null_resource.lb_ready
+  ]
   
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-backend-service"
