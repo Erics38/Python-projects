@@ -189,7 +189,9 @@ resource "aws_lb_listener" "https" {
 # Examples: route /api/* to backend service, /static/* to S3, etc.
 
 resource "aws_lb_listener_rule" "health_check" {
-  listener_arn = aws_lb_listener.https.arn
+  count = var.domain_name != "" ? 1 : 0
+  
+  listener_arn = aws_lb_listener.https[0].arn
   priority     = 100  # Lower numbers = higher priority
   
   # CONDITION: Match specific path
