@@ -171,6 +171,105 @@ jobs:
           fi
         done
 
+    - name: Clean up Parameter Store parameters
+      run: |
+        echo "📋 Cleaning up Parameter Store parameters..."
+        
+        # Get all guestbook-related parameters
+        PARAMS=$(aws ssm describe-parameters \
+          --query 'Parameters[?contains(Name, `guestbook`)].Name' \
+          --output text || echo "")
+        
+        if [ -n "$PARAMS" ]; then
+          echo "Found parameters: $PARAMS"
+          echo "Deleting parameters..."
+          aws ssm delete-parameters --names $PARAMS || true
+          echo "✅ Parameter Store cleaned"
+        else
+          echo "No guestbook parameters found"
+        fi
+
+    - name: Clean up IAM roles
+      run: |
+        echo "👤 Cleaning up IAM roles..."
+        
+        # Get all guestbook-related roles
+        ROLES=$(aws iam list-roles \
+          --query 'Roles[?contains(RoleName, `guestbook`)].RoleName' \
+          --output text || echo "")
+        
+        if [ -n "$ROLES" ]; then
+          echo "Found roles: $ROLES"
+          
+          for role in $ROLES; do
+            echo "Cleaning role: $role"
+            
+            # Detach managed policies
+            ATTACHED_POLICIES=$(aws iam list-attached-role-policies \
+              --role-name $role \
+              --query 'AttachedPolicies[*].PolicyArn' \
+              --output text 2>/dev/null || echo "")
+            
+            if [ -n "$ATTACHED_POLICIES" ]; then
+              for policy in $ATTACHED_POLICIES; do
+                echo "  Detaching policy: $policy"
+                aws iam detach-role-policy --role-name $role --policy-arn $policy || true
+              done
+            fi
+            
+            # Delete inline policies
+            INLINE_POLICIES=$(aws iam list-role-policies \
+              --role-name $role \
+              --query 'PolicyNames[*]' \
+              --output text 2>/dev/null || echo "")
+            
+            if [ -n "$INLINE_POLICIES" ]; then
+              for policy in $INLINE_POLICIES; do
+                echo "  Deleting inline policy: $policy"
+                aws iam delete-role-policy --role-name $role --policy-name $policy || true
+              done
+            fi
+            
+            # Delete the role
+            echo "  Deleting role: $role"
+            aws iam delete-role --role-name $role || echo "  Failed to delete $role (may have dependencies)"
+          done
+          
+          echo "✅ IAM roles cleaned"
+        else
+          echo "No guestbook roles found"
+        fi
+
+    - name: Clean up remaining AWS resources
+      run: |
+        echo "🧹 Final cleanup of any missed resources..."
+        
+        # Clean up any remaining VPC endpoints
+        echo "Checking for VPC endpoints..."
+        ENDPOINTS=$(aws ec2 describe-vpc-endpoints \
+          --query 'VpcEndpoints[?contains(VpcId, `guestbook`) || contains(Tags[?Key==`Name`].Value || `[]`[0], `guestbook`)].VpcEndpointId' \
+          --output text 2>/dev/null || echo "")
+        
+        if [ -n "$ENDPOINTS" ]; then
+          echo "Deleting VPC endpoints: $ENDPOINTS"
+          for endpoint in $ENDPOINTS; do
+            aws ec2 delete-vpc-endpoint --vpc-endpoint-id $endpoint || true
+          done
+        fi
+        
+        # Clean up any remaining security groups (except default)
+        echo "Checking for security groups..."
+        SG_IDS=$(aws ec2 describe-security-groups \
+          --query 'SecurityGroups[?contains(Tags[?Key==`Name`].Value || `[]`[0], `guestbook`) && GroupName != `default`].GroupId' \
+          --output text 2>/dev/null || echo "")
+        
+        if [ -n "$SG_IDS" ]; then
+          echo "Deleting security groups: $SG_IDS"
+          for sg in $SG_IDS; do
+            aws ec2 delete-security-group --group-id $sg || true
+          done
+        fi
+
     - name: Verify cleanup completion
       run: |
         echo "🔍 Verifying cleanup completion..."
