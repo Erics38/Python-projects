@@ -368,7 +368,7 @@ resource "aws_cloudwatch_metric_alarm" "alb_healthy_host_count" {
   alarm_actions       = []     # TODO: Add SNS topic for notifications
   
   dimensions = {
-    TargetGroup  = aws_lb_target_group.app.arn_suffix
+    TargetGroup  = aws_lb_target_group.frontend.arn_suffix
     LoadBalancer = aws_lb.main.arn_suffix
   }
   

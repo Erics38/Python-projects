@@ -177,20 +177,33 @@ output "ip_address_type" {
 
 # HEALTH CHECK CONFIGURATION
 output "health_check_configuration" {
-  description = "Target group health check configuration"
+  description = "Target group health check configurations for microservices"
   value = {
-    enabled             = aws_lb_target_group.app.health_check[0].enabled
-    healthy_threshold   = aws_lb_target_group.app.health_check[0].healthy_threshold
-    unhealthy_threshold = aws_lb_target_group.app.health_check[0].unhealthy_threshold
-    timeout             = aws_lb_target_group.app.health_check[0].timeout
-    interval            = aws_lb_target_group.app.health_check[0].interval
-    path                = aws_lb_target_group.app.health_check[0].path
-    matcher             = aws_lb_target_group.app.health_check[0].matcher
-    port                = aws_lb_target_group.app.health_check[0].port
-    protocol            = aws_lb_target_group.app.health_check[0].protocol
+    frontend = {
+      enabled             = aws_lb_target_group.frontend.health_check[0].enabled
+      healthy_threshold   = aws_lb_target_group.frontend.health_check[0].healthy_threshold
+      unhealthy_threshold = aws_lb_target_group.frontend.health_check[0].unhealthy_threshold
+      timeout             = aws_lb_target_group.frontend.health_check[0].timeout
+      interval            = aws_lb_target_group.frontend.health_check[0].interval
+      path                = aws_lb_target_group.frontend.health_check[0].path
+      matcher             = aws_lb_target_group.frontend.health_check[0].matcher
+      port                = aws_lb_target_group.frontend.health_check[0].port
+      protocol            = aws_lb_target_group.frontend.health_check[0].protocol
+    }
+    backend = {
+      enabled             = aws_lb_target_group.backend.health_check[0].enabled
+      healthy_threshold   = aws_lb_target_group.backend.health_check[0].healthy_threshold
+      unhealthy_threshold = aws_lb_target_group.backend.health_check[0].unhealthy_threshold
+      timeout             = aws_lb_target_group.backend.health_check[0].timeout
+      interval            = aws_lb_target_group.backend.health_check[0].interval
+      path                = aws_lb_target_group.backend.health_check[0].path
+      matcher             = aws_lb_target_group.backend.health_check[0].matcher
+      port                = aws_lb_target_group.backend.health_check[0].port
+      protocol            = aws_lb_target_group.backend.health_check[0].protocol
+    }
   }
   
-  # Complete health check configuration for documentation and debugging
+  # Complete health check configuration for both microservices
 }
 
 # MONITORING INFORMATION  

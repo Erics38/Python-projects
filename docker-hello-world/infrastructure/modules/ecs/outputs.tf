@@ -230,10 +230,11 @@ output "troubleshooting_commands" {
 
 # INTEGRATION INFORMATION
 output "load_balancer_integration" {
-  description = "Load balancer integration details"
+  description = "Load balancer integration details for microservices"
   value = {
-    target_group_arn = var.target_group_arn
-    container_port   = var.container_port
+    frontend_target_group_arn = var.frontend_target_group_arn
+    backend_target_group_arn  = var.backend_target_group_arn
+    container_port            = var.container_port
     health_check_grace_period = var.health_check_grace_period
   }
 }
