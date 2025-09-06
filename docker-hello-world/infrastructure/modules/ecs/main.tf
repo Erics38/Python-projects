@@ -299,13 +299,13 @@ resource "aws_ecs_service" "frontend" {
     assign_public_ip = true                     # Enable public IPs for demo (AWS API access)
   }
   
-  # LOAD BALANCER INTEGRATION
-  # This registers container IPs with the ALB target group
-  load_balancer {
-    target_group_arn = var.target_group_arn
-    container_name   = "frontend"
-    container_port   = 80
-  }
+  # LOAD BALANCER INTEGRATION - DISABLED FOR DEMO
+  # Frontend service not exposed directly - backend will serve frontend assets
+  # load_balancer {
+  #   target_group_arn = var.target_group_arn
+  #   container_name   = "frontend"
+  #   container_port   = 80
+  # }
   
   # DEPLOYMENT CONFIGURATION - TEMPORARILY DISABLED FOR COMPATIBILITY
   # Controls how updates are rolled out
