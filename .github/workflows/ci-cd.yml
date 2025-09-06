@@ -356,7 +356,9 @@ jobs:
       run: |
         echo "🗑️ Destroying infrastructure in ${{ github.event.inputs.deploy_environment }}..."
         terraform destroy -auto-approve \
-          -var-file="environments/${{ github.event.inputs.deploy_environment }}.tfvars"
+          -var-file="environments/${{ github.event.inputs.deploy_environment }}.tfvars" \
+          -var="frontend_image=nginx:alpine" \
+          -var="backend_image=node:18-alpine"
 
     - name: Cleanup ECR images (optional)
       run: |
