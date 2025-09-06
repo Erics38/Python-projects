@@ -64,21 +64,21 @@ output "target_group_arn_suffix" {
 # SSL CERTIFICATE INFORMATION
 output "certificate_arn" {
   description = "ARN of the SSL certificate"
-  value       = aws_acm_certificate.main.arn
+  value       = length(aws_acm_certificate.main) > 0 ? aws_acm_certificate.main[0].arn : null
   
   # Can be reused for other AWS services (CloudFront, API Gateway, etc.)
 }
 
 output "certificate_domain_name" {
   description = "Domain name of the SSL certificate"
-  value       = aws_acm_certificate.main.domain_name
+  value       = length(aws_acm_certificate.main) > 0 ? aws_acm_certificate.main[0].domain_name : null
   
   # The primary domain name this certificate covers
 }
 
 output "certificate_validation_options" {
   description = "Certificate validation DNS records (for manual DNS validation)"
-  value       = aws_acm_certificate.main.domain_validation_options
+  value       = length(aws_acm_certificate.main) > 0 ? aws_acm_certificate.main[0].domain_validation_options : []
   sensitive   = true
   
   # If using DNS validation, these records must be added to your DNS

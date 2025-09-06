@@ -40,6 +40,9 @@ health_check_grace_period           = 60
 deployment_maximum_percent          = 200  # Allow 2x instances during deployment
 deployment_minimum_healthy_percent  = 50   # Allow some downtime for cost savings
 
+# Domain Configuration - DISABLE SSL FOR DEMO
+domain_name = ""
+
 # Demo-Specific Notes:
 # - Total estimated cost: ~$50-60/month when running
 # - Can be stopped completely to reduce to ~$0/month

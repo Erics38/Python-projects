@@ -108,12 +108,14 @@ resource "aws_lb_target_group" "app" {
 # This creates a certificate that's automatically validated and renewed
 
 resource "aws_acm_certificate" "main" {
-  domain_name       = var.domain_name != "" ? var.domain_name : "${var.name_prefix}.example.com"
+  count = var.domain_name != "" ? 1 : 0
+  
+  domain_name       = var.domain_name
   validation_method = "DNS"  # DNS validation is preferred over email
   
   # SUBJECT ALTERNATIVE NAMES (SANs)
   # Add additional domains that this certificate should cover
-  subject_alternative_names = var.domain_name != "" ? ["*.${var.domain_name}"] : []
+  subject_alternative_names = ["*.${var.domain_name}"]
   
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-ssl-cert"
@@ -159,13 +161,15 @@ resource "aws_lb_listener" "http" {
 # SSL termination happens here - traffic to targets can be HTTP
 
 resource "aws_lb_listener" "https" {
+  count = var.domain_name != "" ? 1 : 0
+  
   load_balancer_arn = aws_lb.main.arn
   port              = "443"
   protocol          = "HTTPS"
   
   # SSL CONFIGURATION
   ssl_policy      = "ELBSecurityPolicy-TLS-1-2-2017-01"  # Strong TLS policy
-  certificate_arn = aws_acm_certificate.main.arn
+  certificate_arn = aws_acm_certificate.main[0].arn
   
   # DEFAULT ACTION: Forward to target group
   default_action {
