@@ -16,8 +16,8 @@ variable "private_subnet_ids" {
   type        = list(string)
   
   validation {
-    condition     = length(var.private_subnet_ids) >= 2
-    error_message = "ECS requires at least 2 private subnets for high availability."
+    condition     = length(var.private_subnet_ids) >= 1
+    error_message = "ECS requires at least 1 private subnet."
   }
   
   # TEACHING POINT: Why Private Subnets?
