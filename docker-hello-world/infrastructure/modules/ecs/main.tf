@@ -299,13 +299,13 @@ resource "aws_ecs_service" "frontend" {
     assign_public_ip = true                     # Enable public IPs for demo (AWS API access)
   }
   
-  # LOAD BALANCER INTEGRATION - DISABLED FOR DEMO
-  # Frontend service not exposed directly - backend will serve frontend assets
-  # load_balancer {
-  #   target_group_arn = var.target_group_arn
-  #   container_name   = "frontend"
-  #   container_port   = 80
-  # }
+  # LOAD BALANCER INTEGRATION - Frontend microservice
+  # Routes frontend traffic (/, /static/*, etc.) to frontend containers
+  load_balancer {
+    target_group_arn = var.frontend_target_group_arn
+    container_name   = "frontend"
+    container_port   = 80
+  }
   
   # DEPLOYMENT CONFIGURATION - TEMPORARILY DISABLED FOR COMPATIBILITY
   # Controls how updates are rolled out
@@ -382,9 +382,10 @@ resource "aws_ecs_service" "backend" {
     assign_public_ip = true                     # Enable public IPs for demo (AWS API access)
   }
   
-  # BACKEND CONNECTS TO ALB TOO
+  # LOAD BALANCER INTEGRATION - Backend microservice  
+  # Routes API traffic (/api/*, /health) to backend containers
   load_balancer {
-    target_group_arn = var.target_group_arn
+    target_group_arn = var.backend_target_group_arn
     container_name   = "backend"
     container_port   = var.container_port
   }

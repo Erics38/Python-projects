@@ -53,51 +53,69 @@ resource "aws_lb" "main" {
 # Target groups define how the load balancer routes traffic to backend services
 # Each target group can have different health check settings and routing rules
 
-resource "aws_lb_target_group" "app" {
-  name     = "${var.name_prefix}-app-tg"
-  port     = 3000  # Port that your application listens on
+# FRONTEND TARGET GROUP - Serves static content and web UI
+resource "aws_lb_target_group" "frontend" {
+  name     = "${var.name_prefix}-frontend-tg"
+  port     = 80
   protocol = "HTTP"
   vpc_id   = var.vpc_id
-  
-  # TARGET TYPE: "ip" is used with ECS Fargate
-  # - "instance": Routes to EC2 instances
-  # - "ip": Routes to specific IP addresses (used with containers)
-  # - "lambda": Routes to Lambda functions
   target_type = "ip"
   
-  # HEALTH CHECK CONFIGURATION
-  # Critical for ensuring traffic only goes to healthy containers
   health_check {
     enabled             = true
-    healthy_threshold   = 2      # Number of successful checks before marking healthy
-    unhealthy_threshold = 3      # Number of failed checks before marking unhealthy
-    timeout             = 5      # Seconds to wait for health check response
-    interval            = 30     # Seconds between health checks
-    path                = "/"    # Health check endpoint (customize for your app)
-    matcher             = "200"  # HTTP status codes that indicate healthy
-    port                = "traffic-port"  # Use same port as traffic
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    timeout             = 5
+    interval            = 30
+    path                = "/"      # Frontend root page
+    matcher             = "200"
+    port                = "traffic-port"
     protocol            = "HTTP"
   }
   
-  # STICKINESS (Session Affinity) - usually not needed for stateless apps
-  # Uncomment if your application requires sticky sessions
-  # stickiness {
-  #   type            = "lb_cookie"
-  #   cookie_duration = 86400  # 24 hours in seconds
-  #   enabled         = true
-  # }
-  
-  # DEREGISTRATION DELAY
-  # How long to wait before removing a target (allows in-flight requests to complete)
-  deregistration_delay = 30  # Seconds (default is 300)
+  deregistration_delay = 30
   
   tags = merge(var.tags, {
-    Name = "${var.name_prefix}-app-target-group"
+    Name = "${var.name_prefix}-frontend-target-group"
     Type = "ALB Target Group"
-    Purpose = "Routes traffic to application containers"
+    Purpose = "Routes traffic to frontend containers"
+    Service = "Frontend"
   })
   
-  # LIFECYCLE: Prevent destruction during updates
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# BACKEND TARGET GROUP - Serves API endpoints and business logic
+resource "aws_lb_target_group" "backend" {
+  name     = "${var.name_prefix}-backend-tg"
+  port     = 3000
+  protocol = "HTTP"
+  vpc_id   = var.vpc_id
+  target_type = "ip"
+  
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    timeout             = 5
+    interval            = 30
+    path                = "/health"  # Backend health endpoint
+    matcher             = "200"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+  }
+  
+  deregistration_delay = 30
+  
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-backend-target-group"
+    Type = "ALB Target Group"
+    Purpose = "Routes API traffic to backend containers"
+    Service = "Backend"
+  })
+  
   lifecycle {
     create_before_destroy = true
   }
@@ -138,16 +156,16 @@ resource "aws_lb_listener" "http" {
   port              = "80"
   protocol          = "HTTP"
   
-  # CONDITIONAL ACTION: Forward to app if no HTTPS, redirect if HTTPS enabled
+  # CONDITIONAL ACTION: Forward to frontend if no HTTPS, redirect if HTTPS enabled
   default_action {
     type             = var.domain_name != "" ? "redirect" : "forward"
     
-    # Forward to target group when HTTPS disabled (demo mode)
+    # Forward to frontend target group when HTTPS disabled (demo mode)
     dynamic "forward" {
       for_each = var.domain_name == "" ? [1] : []
       content {
         target_group {
-          arn = aws_lb_target_group.app.arn
+          arn = aws_lb_target_group.frontend.arn
         }
       }
     }
@@ -166,7 +184,32 @@ resource "aws_lb_listener" "http" {
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-http-listener"
     Type = "ALB Listener"
-    Purpose = "HTTP to HTTPS redirect"
+    Purpose = "HTTP traffic routing"
+  })
+}
+
+# API ROUTING RULE FOR HTTP - Route /api/* to backend
+resource "aws_lb_listener_rule" "api_http" {
+  count = var.domain_name == "" ? 1 : 0  # Only create when HTTPS is disabled
+  
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 100
+  
+  condition {
+    path_pattern {
+      values = ["/api/*", "/health"]
+    }
+  }
+  
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend.arn
+  }
+  
+  tags = merge(var.tags, {
+    Name = "${var.name_prefix}-api-http-rule"
+    Type = "ALB Listener Rule"
+    Purpose = "Route API traffic to backend service"
   })
 }
 
@@ -185,10 +228,10 @@ resource "aws_lb_listener" "https" {
   ssl_policy      = "ELBSecurityPolicy-TLS-1-2-2017-01"  # Strong TLS policy
   certificate_arn = aws_acm_certificate.main[0].arn
   
-  # DEFAULT ACTION: Forward to target group
+  # DEFAULT ACTION: Forward to frontend target group
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.app.arn
+    target_group_arn = aws_lb_target_group.frontend.arn
   }
   
   tags = merge(var.tags, {
@@ -202,29 +245,28 @@ resource "aws_lb_listener" "https" {
 # These allow advanced routing based on conditions
 # Examples: route /api/* to backend service, /static/* to S3, etc.
 
-resource "aws_lb_listener_rule" "health_check" {
+# API ROUTING RULE FOR HTTPS - Route /api/* to backend
+resource "aws_lb_listener_rule" "api_https" {
   count = var.domain_name != "" ? 1 : 0
   
   listener_arn = aws_lb_listener.https[0].arn
-  priority     = 100  # Lower numbers = higher priority
+  priority     = 100
   
-  # CONDITION: Match specific path
   condition {
     path_pattern {
-      values = ["/health", "/health/*"]
+      values = ["/api/*", "/health"]
     }
   }
   
-  # ACTION: Forward to target group
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.app.arn
+    target_group_arn = aws_lb_target_group.backend.arn
   }
   
   tags = merge(var.tags, {
-    Name = "${var.name_prefix}-health-check-rule"
+    Name = "${var.name_prefix}-api-https-rule"
     Type = "ALB Listener Rule"
-    Purpose = "Health check endpoint routing"
+    Purpose = "Route API traffic to backend service (HTTPS)"
   })
 }
 

@@ -47,11 +47,18 @@ variable "ecs_sg_id" {
   # - Outbound: HTTPS to AWS APIs, database port to RDS
 }
 
-variable "target_group_arn" {
-  description = "ALB target group ARN for container registration"
+variable "frontend_target_group_arn" {
+  description = "ALB target group ARN for frontend service registration"
   type        = string
   
-  # ECS automatically registers/deregisters container IPs with this target group
+  # Frontend ECS service registers with this target group (port 80)
+}
+
+variable "backend_target_group_arn" {
+  description = "ALB target group ARN for backend service registration"  
+  type        = string
+  
+  # Backend ECS service registers with this target group (port 3000)
 }
 
 variable "http_listener_arn" {

@@ -36,29 +36,42 @@ output "arn_suffix" {
   # Format: app/load-balancer-name/1234567890123456
 }
 
-# TARGET GROUP INFORMATION
+# FRONTEND TARGET GROUP INFORMATION
+output "frontend_target_group_arn" {
+  description = "ARN of the frontend target group (for frontend ECS service)"
+  value       = aws_lb_target_group.frontend.arn
+}
+
+output "frontend_target_group_name" {
+  description = "Name of the frontend target group"
+  value       = aws_lb_target_group.frontend.name
+}
+
+# BACKEND TARGET GROUP INFORMATION  
+output "backend_target_group_arn" {
+  description = "ARN of the backend target group (for backend ECS service)"
+  value       = aws_lb_target_group.backend.arn
+}
+
+output "backend_target_group_name" {
+  description = "Name of the backend target group"
+  value       = aws_lb_target_group.backend.name
+}
+
+# LEGACY OUTPUT - Points to frontend for backward compatibility
 output "target_group_arn" {
-  description = "ARN of the target group (for ECS service integration)"
-  value       = aws_lb_target_group.app.arn
-  
-  # CRITICAL: This is used by ECS services to register containers
-  # ECS will automatically register/deregister container IPs with this target group
+  description = "ARN of the primary target group (legacy - use specific target groups)"
+  value       = aws_lb_target_group.frontend.arn
 }
 
 output "target_group_name" {
-  description = "Name of the target group"
-  value       = aws_lb_target_group.app.name
-  
-  # Useful for AWS CLI operations and debugging:
-  # aws elbv2 describe-target-health --target-group-arn <arn>
+  description = "Name of the primary target group (legacy)"
+  value       = aws_lb_target_group.frontend.name
 }
 
 output "target_group_arn_suffix" {
-  description = "ARN suffix of target group for CloudWatch metrics"
-  value       = aws_lb_target_group.app.arn_suffix
-  
-  # Used in CloudWatch alarms and metrics
-  # Format: targetgroup/target-group-name/1234567890123456
+  description = "ARN suffix of primary target group for CloudWatch metrics (legacy)"
+  value       = aws_lb_target_group.frontend.arn_suffix
 }
 
 # SSL CERTIFICATE INFORMATION
