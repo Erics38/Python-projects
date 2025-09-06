@@ -55,6 +55,9 @@
         user: appConfig.dbUser,
         password: appConfig.dbPassword,
         port: parseInt(appConfig.dbPort),
+        ssl: {
+          rejectUnauthorized: false
+        }
       });
       
       console.log('Configuration loaded successfully');
