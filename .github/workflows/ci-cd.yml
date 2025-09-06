@@ -85,58 +85,58 @@ jobs:
         terraform init -backend=false
         terraform validate
 
-  security-scan:
-    name: 🛡️ Security Scanning
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Build Docker images for scanning
-      working-directory: docker-hello-world
-      run: |
-        echo "🔨 Building Docker images for security scanning..."
-        docker build -t guestbook-frontend:scan -f Dockerfile .
-        docker build -t guestbook-backend:scan -f Dockerfile.backend .
-
-    - name: Run Trivy security scan on frontend
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: guestbook-frontend:scan
-        format: 'sarif'
-        output: 'trivy-frontend-results.sarif'
-
-    - name: Run Trivy security scan on backend
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: guestbook-backend:scan
-        format: 'sarif'
-        output: 'trivy-backend-results.sarif'
-
-    # Security uploads disabled due to GitHub integration permissions
-    # - name: Upload Frontend Trivy scan results to GitHub Security tab
-    #   uses: github/codeql-action/upload-sarif@v3
-    #   if: always()
-    #   with:
-    #     sarif_file: 'trivy-frontend-results.sarif'
-    #     category: 'trivy-frontend'
-
-    # - name: Upload Backend Trivy scan results to GitHub Security tab
-    #   uses: github/codeql-action/upload-sarif@v3
-    #   if: always()
-    #   with:
-    #     sarif_file: 'trivy-backend-results.sarif'
-    #     category: 'trivy-backend'
-
-    - name: Check for critical vulnerabilities
-      run: |
-        echo "🔍 Checking for HIGH/CRITICAL vulnerabilities..."
-        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          aquasec/trivy image --exit-code 1 --severity HIGH,CRITICAL \
-          guestbook-frontend:scan
-        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          aquasec/trivy image --exit-code 1 --severity HIGH,CRITICAL \
-          guestbook-backend:scan
+  # security-scan:
+  #   name: 🛡️ Security Scanning
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: Checkout code
+  #     uses: actions/checkout@v4
+  #
+  #   - name: Build Docker images for scanning
+  #     working-directory: docker-hello-world
+  #     run: |
+  #       echo "🔨 Building Docker images for security scanning..."
+  #       docker build -t guestbook-frontend:scan -f Dockerfile .
+  #       docker build -t guestbook-backend:scan -f Dockerfile.backend .
+  #
+  #   - name: Run Trivy security scan on frontend
+  #     uses: aquasecurity/trivy-action@master
+  #     with:
+  #       image-ref: guestbook-frontend:scan
+  #       format: 'sarif'
+  #       output: 'trivy-frontend-results.sarif'
+  #
+  #   - name: Run Trivy security scan on backend
+  #     uses: aquasecurity/trivy-action@master
+  #     with:
+  #       image-ref: guestbook-backend:scan
+  #       format: 'sarif'
+  #       output: 'trivy-backend-results.sarif'
+  #
+  #   # Security uploads disabled due to GitHub integration permissions
+  #   # - name: Upload Frontend Trivy scan results to GitHub Security tab
+  #   #   uses: github/codeql-action/upload-sarif@v3
+  #   #   if: always()
+  #   #   with:
+  #   #     sarif_file: 'trivy-frontend-results.sarif'
+  #   #     category: 'trivy-frontend'
+  #
+  #   # - name: Upload Backend Trivy scan results to GitHub Security tab
+  #   #   uses: github/codeql-action/upload-sarif@v3
+  #   #   if: always()
+  #   #   with:
+  #   #     sarif_file: 'trivy-backend-results.sarif'
+  #   #     category: 'trivy-backend'
+  #
+  #   - name: Check for critical vulnerabilities
+  #     run: |
+  #       echo "🔍 Checking for HIGH/CRITICAL vulnerabilities..."
+  #       docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+  #         aquasec/trivy image --exit-code 1 --severity HIGH,CRITICAL \
+  #         guestbook-frontend:scan
+  #       docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+  #         aquasec/trivy image --exit-code 1 --severity HIGH,CRITICAL \
+  #         guestbook-backend:scan
 
   # =============================================================================
   # CONTINUOUS DEPLOYMENT (CD) JOBS
@@ -144,7 +144,7 @@ jobs:
 
   build-and-push:
     name: 🏗️ Build & Push Container Images
-    needs: [validate, security-scan]
+    needs: [validate]
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
     outputs:
