@@ -16,8 +16,8 @@ variable "public_subnet_ids" {
   type        = list(string)
   
   validation {
-    condition     = length(var.public_subnet_ids) >= 1
-    error_message = "Load balancer requires at least 1 public subnet."
+    condition     = length(var.public_subnet_ids) >= 2
+    error_message = "Load balancer requires at least 2 public subnets in different AZs (AWS ALB requirement)."
   }
   
   # TEACHING POINT: ALB Subnet Requirements

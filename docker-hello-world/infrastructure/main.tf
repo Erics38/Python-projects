@@ -55,9 +55,9 @@ resource "random_password" "db_password" {
 locals {
   name_prefix = "guestbook-${var.environment}"
   
-  # Network configuration - SIMPLIFIED FOR DEMO
+  # Network configuration - AWS SERVICES REQUIRE 2+ AZs
   vpc_cidr = "10.0.0.0/16"
-  azs      = slice(data.aws_availability_zones.available.names, 0, 1)  # Single AZ for demo
+  azs      = slice(data.aws_availability_zones.available.names, 0, 2)  # 2 AZs for AWS service requirements
   
   # Container configuration
   container_port = 3000

@@ -17,8 +17,8 @@ variable "private_subnet_ids" {
   type        = list(string)
   
   validation {
-    condition     = length(var.private_subnet_ids) >= 1
-    error_message = "Database requires at least 1 private subnet."
+    condition     = length(var.private_subnet_ids) >= 2
+    error_message = "Database requires at least 2 private subnets across different AZs (AWS RDS requirement)."
   }
 }
 

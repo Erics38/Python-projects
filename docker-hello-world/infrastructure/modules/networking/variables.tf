@@ -20,8 +20,8 @@ variable "azs" {
   type        = list(string)
   
   validation {
-    condition     = length(var.azs) >= 1
-    error_message = "At least 1 availability zone must be specified."
+    condition     = length(var.azs) >= 2
+    error_message = "At least 2 availability zones must be specified for AWS service requirements (RDS, ALB)."
   }
 }
 
