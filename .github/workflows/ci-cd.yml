@@ -242,7 +242,12 @@ jobs:
       working-directory: docker-hello-world/infrastructure
       run: |
         echo "📋 Creating Terraform plan for ${{ github.event.inputs.deploy_environment }} environment..."
-        terraform plan \
+        echo "Current directory: $(pwd)"
+        echo "Terraform files:"
+        ls -la *.tf
+        echo "Environment files:"
+        ls -la environments/
+        terraform plan -input=false \
           -var-file="environments/${{ github.event.inputs.deploy_environment }}.tfvars" \
           -var="frontend_image=${{ needs.build-and-push.outputs.frontend-image }}" \
           -var="backend_image=${{ needs.build-and-push.outputs.backend-image }}" \
