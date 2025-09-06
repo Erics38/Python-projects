@@ -103,7 +103,7 @@ resource "aws_db_instance" "main" {
   
   # MONITORING AND PERFORMANCE
   monitoring_interval = 60  # Enhanced monitoring every 60 seconds
-  monitoring_role_arn = var.enable_performance_insights ? aws_iam_role.rds_enhanced_monitoring[0].arn : null
+  monitoring_role_arn = aws_iam_role.rds_enhanced_monitoring.arn  # Always provide role when monitoring enabled
   performance_insights_enabled = var.enable_performance_insights
   performance_insights_retention_period = var.enable_performance_insights ? 7 : null  # Days to retain PI data
   
@@ -144,7 +144,7 @@ resource "aws_db_instance" "main" {
 # TEACHING POINT: IAM Role for Enhanced Monitoring
 # RDS Enhanced Monitoring requires an IAM role to publish metrics to CloudWatch
 resource "aws_iam_role" "rds_enhanced_monitoring" {
-  count = var.enable_performance_insights ? 1 : 0
+  # Always create monitoring role since we enable monitoring_interval
   
   name_prefix = "${var.name_prefix}-rds-monitoring-"
   description = "IAM role for RDS Enhanced Monitoring"
@@ -172,9 +172,9 @@ resource "aws_iam_role" "rds_enhanced_monitoring" {
 
 # ATTACH AWS MANAGED POLICY: Provides necessary permissions for enhanced monitoring
 resource "aws_iam_role_policy_attachment" "rds_enhanced_monitoring" {
-  count = var.enable_performance_insights ? 1 : 0
+  # Always attach policy since we always create the role
   
-  role       = aws_iam_role.rds_enhanced_monitoring[0].name
+  role       = aws_iam_role.rds_enhanced_monitoring.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
 }
 

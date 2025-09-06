@@ -191,29 +191,9 @@ resource "aws_security_group" "waf" {
   }
 }
 
-# Security group rules for monitoring and logging
-resource "aws_security_group_rule" "ecs_aws_apis" {
-  type        = "egress"
-  from_port   = 443
-  to_port     = 443
-  protocol    = "tcp"
-  cidr_blocks = ["0.0.0.0/0"]
-  description = "AWS APIs access - CloudWatch Logs, Parameter Store, Secrets Manager"
-
-  security_group_id = aws_security_group.ecs.id
-}
-
-# KMS access for secrets decryption
-resource "aws_security_group_rule" "ecs_kms" {
-  type        = "egress"
-  from_port   = 443
-  to_port     = 443
-  protocol    = "tcp"
-  cidr_blocks = ["0.0.0.0/0"]
-  description = "KMS API access for secrets decryption"
-
-  security_group_id = aws_security_group.ecs.id
-}
+# Security group rules for monitoring and logging - REMOVED DUPLICATES
+# The ECS security group already allows all outbound traffic (protocol = "-1")
+# which includes HTTPS (443) to AWS APIs, so no need for separate rules
 
 # Separate rules to avoid circular dependencies between ALB and ECS security groups
 
