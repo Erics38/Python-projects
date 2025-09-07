@@ -155,7 +155,7 @@
       await loadConfig();
       await initDB();
       
-      app.listen(port, () => {
+      app.listen(port, '0.0.0.0', () => {
         console.log(`Server running on port ${port}`);
         console.log('✅ Guestbook API ready with Parameter Store configuration');
       });
