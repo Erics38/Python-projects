@@ -294,9 +294,9 @@ resource "aws_ecs_service" "frontend" {
   
   # NETWORK CONFIGURATION (required for Fargate)
   network_configuration {
-    subnets          = var.private_subnet_ids   # Use private subnets (secure)
+    subnets          = var.public_subnet_ids    # Temporarily use public subnets
     security_groups  = [var.ecs_sg_id]          # Security group allows ALB traffic
-    assign_public_ip = false                    # No public IPs needed in private subnets
+    assign_public_ip = true                     # Enable public IPs for troubleshooting
   }
   
   # LOAD BALANCER INTEGRATION - Frontend microservice
