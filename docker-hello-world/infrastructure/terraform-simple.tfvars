@@ -3,8 +3,8 @@ aws_region = "us-east-1"
 environment = "demo"
 
 # Use simple public images that definitely work
-frontend_image = "nginx:alpine"
-backend_image = "httpd:alpine"
+frontend_image = "nginx:latest"
+backend_image = "httpd:latest"
 
 # Minimal resources
 container_cpu = 256
