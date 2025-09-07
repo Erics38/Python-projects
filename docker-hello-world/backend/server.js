@@ -84,6 +84,11 @@
     }
   }
 
+  // Health check endpoint
+  app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+  });
+
   // Routes
   app.get('/api/guestbook', async (req, res) => {
     try {
