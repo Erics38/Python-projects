@@ -10,7 +10,14 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(aws ec2 describe-subnets:*)",
-      "Bash(MSYS_NO_PATHCONV=1 aws logs describe-log-groups --log-group-name-prefix \"/aws/ecs/guestbook\" --region us-east-1)"
+      "Bash(MSYS_NO_PATHCONV=1 aws logs describe-log-groups --log-group-name-prefix \"/aws/ecs/guestbook\" --region us-east-1)",
+      "Bash(aws ecs describe-services:*)",
+      "Bash(aws ecs list-clusters:*)",
+      "Bash(aws ecs describe-task-definition:*)",
+      "Bash(MSYS_NO_PATHCONV=1 aws logs tail \"/aws/ecs/guestbook-demo\" --since 5m --filter-pattern=\"Configuration loaded\")",
+      "Bash(MSYS_NO_PATHCONV=1 aws logs tail \"/aws/ecs/guestbook-demo\" --since 5m)",
+      "Bash(aws ecs update-service:*)",
+      "Bash(terraform apply -auto-approve)"
     ],
     "deny": [],
     "ask": []
