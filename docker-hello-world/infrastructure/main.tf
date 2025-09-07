@@ -145,10 +145,15 @@ module "ecs" {
 
 # Secrets Manager for database credentials
 resource "aws_secretsmanager_secret" "db_credentials" {
-  name        = "${local.name_prefix}-db-credentials"
+  name        = "${local.name_prefix}-db-credentials-${random_id.secret_suffix.hex}"
   description = "Database credentials for guestbook application"
   
   tags = local.common_tags
+}
+
+# Random suffix to avoid naming conflicts with deleted secrets
+resource "random_id" "secret_suffix" {
+  byte_length = 4
 }
 
 resource "aws_secretsmanager_secret_version" "db_credentials" {
