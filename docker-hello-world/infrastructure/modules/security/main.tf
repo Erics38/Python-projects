@@ -197,24 +197,46 @@ resource "aws_security_group" "waf" {
 
 # Separate rules to avoid circular dependencies between ALB and ECS security groups
 
-# Allow ALB to send traffic to ECS tasks
-resource "aws_security_group_rule" "alb_to_ecs" {
+# Allow ALB to send traffic to ECS backend (port 3000)
+resource "aws_security_group_rule" "alb_to_ecs_backend" {
   type                     = "egress"
   from_port                = 3000
   to_port                  = 3000
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.ecs.id
   security_group_id        = aws_security_group.alb.id
-  description              = "HTTP to ECS tasks"
+  description              = "HTTP to ECS backend tasks"
 }
 
-# Allow ECS tasks to receive traffic from ALB
-resource "aws_security_group_rule" "ecs_from_alb" {
+# Allow ALB to send traffic to ECS frontend (port 80)
+resource "aws_security_group_rule" "alb_to_ecs_frontend" {
+  type                     = "egress"
+  from_port                = 80
+  to_port                  = 80
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.ecs.id
+  security_group_id        = aws_security_group.alb.id
+  description              = "HTTP to ECS frontend tasks"
+}
+
+# Allow ECS backend to receive traffic from ALB (port 3000)
+resource "aws_security_group_rule" "ecs_backend_from_alb" {
   type                     = "ingress"
   from_port                = 3000
   to_port                  = 3000
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.alb.id
   security_group_id        = aws_security_group.ecs.id
-  description              = "HTTP from ALB"
+  description              = "HTTP from ALB to backend"
+}
+
+# Allow ECS frontend to receive traffic from ALB (port 80)
+resource "aws_security_group_rule" "ecs_frontend_from_alb" {
+  type                     = "ingress"
+  from_port                = 80
+  to_port                  = 80
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.alb.id
+  security_group_id        = aws_security_group.ecs.id
+  description              = "HTTP from ALB to frontend"
 }

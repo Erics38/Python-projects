@@ -14,7 +14,7 @@ desired_count = 1
 # Minimal database
 instance_class = "db.t3.micro"
 allocated_storage = 20
-backup_retention_period = 0
+backup_retention_period = 1
 multi_az = false
 enable_deletion_protection = false
 
