@@ -55,11 +55,6 @@ variable "backup_retention_period" {
   description = "RDS backup retention period in days"
   type        = number
   default     = 7
-  
-  validation {
-    condition     = var.backup_retention_period >= 0 && var.backup_retention_period <= 35
-    error_message = "Backup retention period must be between 0 and 35 days."
-  }
 }
 
 variable "log_retention_days" {
