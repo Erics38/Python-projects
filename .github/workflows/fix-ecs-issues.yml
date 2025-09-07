@@ -1,0 +1,208 @@
+name: 🔧 Fix ECS Infrastructure Issues
+
+on:
+  workflow_dispatch:  # Manual trigger only
+    inputs:
+      fix_iam_permissions:
+        description: 'Fix IAM permissions for Parameter Store'
+        required: true
+        default: 'true'
+        type: boolean
+      fix_database_password:
+        description: 'Sync database password from Secrets Manager'
+        required: true
+        default: 'true' 
+        type: boolean
+      restart_services:
+        description: 'Restart ECS services to apply fixes'
+        required: true
+        default: 'true'
+        type: boolean
+
+env:
+  AWS_REGION: us-east-1
+  CLUSTER_NAME: guestbook-demo-cluster
+
+jobs:
+  fix-ecs-issues:
+    name: 🔧 Apply ECS Infrastructure Fixes
+    runs-on: ubuntu-latest
+    environment: demo
+    
+    steps:
+      - name: 📋 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Install jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: 🔧 Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🔍 Get ECS Task Role Name
+        id: get-task-role
+        run: |
+          echo "Getting current ECS task role..."
+          TASK_ROLE_ARN=$(aws ecs describe-services \
+            --cluster ${{ env.CLUSTER_NAME }} \
+            --services guestbook-demo-backend \
+            --query 'services[0].taskDefinition' --output text | \
+            xargs -I {} aws ecs describe-task-definition \
+            --task-definition {} \
+            --query 'taskDefinition.taskRoleArn' --output text)
+          
+          TASK_ROLE_NAME=$(echo $TASK_ROLE_ARN | cut -d'/' -f2)
+          echo "TASK_ROLE_NAME=$TASK_ROLE_NAME" >> $GITHUB_OUTPUT
+          echo "✅ Found task role: $TASK_ROLE_NAME"
+
+      - name: 🔐 Fix IAM Permissions for Parameter Store
+        if: ${{ github.event.inputs.fix_iam_permissions == 'true' }}
+        run: |
+          echo "🔐 Adding Parameter Store and Secrets Manager permissions..."
+          
+          aws iam put-role-policy \
+            --role-name ${{ steps.get-task-role.outputs.TASK_ROLE_NAME }} \
+            --policy-name AllowParameterStoreRead \
+            --policy-document '{
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ssm:GetParameter",
+                    "ssm:GetParameters",
+                    "ssm:GetParametersByPath"
+                  ],
+                  "Resource": "arn:aws:ssm:${{ env.AWS_REGION }}:*:parameter/guestbook-*"
+                },
+                {
+                  "Effect": "Allow", 
+                  "Action": [
+                    "secretsmanager:GetSecretValue"
+                  ],
+                  "Resource": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:*:secret:guestbook-*"
+                }
+              ]
+            }'
+          
+          echo "✅ IAM permissions updated successfully"
+
+      - name: 🗄️ Sync Database Password from Secrets Manager  
+        if: ${{ github.event.inputs.fix_database_password == 'true' }}
+        run: |
+          echo "🗄️ Syncing database password from Secrets Manager..."
+          
+          # Find the correct secret name
+          SECRET_NAME=$(aws secretsmanager list-secrets \
+            --query 'SecretList[?contains(Name, `guestbook`) && contains(Name, `credentials`)].Name' \
+            --output text)
+          
+          if [ -z "$SECRET_NAME" ]; then
+            echo "❌ No guestbook database secret found"
+            exit 1
+          fi
+          
+          echo "📋 Found secret: $SECRET_NAME"
+          
+          # Get password from Secrets Manager
+          CORRECT_PASSWORD=$(aws secretsmanager get-secret-value \
+            --secret-id "$SECRET_NAME" \
+            --query 'SecretString' --output text | \
+            jq -r '.password')
+          
+          if [ -z "$CORRECT_PASSWORD" ] || [ "$CORRECT_PASSWORD" = "null" ]; then
+            echo "❌ Failed to retrieve password from Secrets Manager"
+            exit 1
+          fi
+          
+          # Update Parameter Store with correct password
+          aws ssm put-parameter \
+            --name guestbook-db-password \
+            --value "$CORRECT_PASSWORD" \
+            --type SecureString \
+            --overwrite
+          
+          echo "✅ Database password synchronized successfully"
+
+      - name: 🔄 Restart ECS Services
+        if: ${{ github.event.inputs.restart_services == 'true' }}
+        run: |
+          echo "🔄 Restarting ECS services to apply fixes..."
+          
+          # Force new deployment for backend service
+          echo "🔄 Restarting backend service..."
+          aws ecs update-service \
+            --cluster ${{ env.CLUSTER_NAME }} \
+            --service guestbook-demo-backend \
+            --force-new-deployment \
+            --no-cli-pager
+          
+          # Force new deployment for frontend service  
+          echo "🔄 Restarting frontend service..."
+          aws ecs update-service \
+            --cluster ${{ env.CLUSTER_NAME }} \
+            --service guestbook-demo-frontend \
+            --force-new-deployment \
+            --no-cli-pager
+          
+          echo "✅ ECS services restart initiated"
+
+      - name: ⏳ Wait for Services to Stabilize
+        if: ${{ github.event.inputs.restart_services == 'true' }}
+        run: |
+          echo "⏳ Waiting for services to stabilize..."
+          
+          # Wait for backend service
+          echo "⏳ Waiting for backend service..."
+          aws ecs wait services-stable \
+            --cluster ${{ env.CLUSTER_NAME }} \
+            --services guestbook-demo-backend
+          
+          # Wait for frontend service
+          echo "⏳ Waiting for frontend service..."
+          aws ecs wait services-stable \
+            --cluster ${{ env.CLUSTER_NAME }} \
+            --services guestbook-demo-frontend
+          
+          echo "✅ All services are stable"
+
+      - name: 🩺 Health Check Services
+        run: |
+          echo "🩺 Checking service health..."
+          
+          # Get service status
+          aws ecs describe-services \
+            --cluster ${{ env.CLUSTER_NAME }} \
+            --services guestbook-demo-backend guestbook-demo-frontend \
+            --query 'services[*].{Name:serviceName,Status:status,Running:runningCount,Desired:desiredCount}' \
+            --output table
+          
+          # Get load balancer URL
+          LB_DNS=$(aws elbv2 describe-load-balancers \
+            --names guestbook-demo-alb \
+            --query 'LoadBalancers[0].DNSName' --output text 2>/dev/null || \
+            aws elbv2 describe-load-balancers \
+            --query 'LoadBalancers[?contains(LoadBalancerName, `guestbook`)].DNSName | [0]' --output text)
+          
+          echo "🌐 Application URL: http://$LB_DNS"
+          echo "🔗 Test with: curl -s http://$LB_DNS/health"
+
+      - name: 📊 Summary Report
+        run: |
+          echo "## 🎉 ECS Fix Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Applied Fixes:" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔐 IAM Permissions: ${{ github.event.inputs.fix_iam_permissions }}" >> $GITHUB_STEP_SUMMARY  
+          echo "- 🗄️ Database Password Sync: ${{ github.event.inputs.fix_database_password }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔄 Service Restart: ${{ github.event.inputs.restart_services }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Test the application at the load balancer URL above" >> $GITHUB_STEP_SUMMARY
+          echo "2. Check CloudWatch logs if issues persist" >> $GITHUB_STEP_SUMMARY
+          echo "3. Monitor ECS service health in AWS Console" >> $GITHUB_STEP_SUMMARY
