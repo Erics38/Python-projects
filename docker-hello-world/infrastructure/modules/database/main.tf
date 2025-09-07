@@ -128,7 +128,7 @@ resource "aws_db_instance" "main" {
   # LIFECYCLE MANAGEMENT
   lifecycle {
     # Prevent accidental recreation due to password changes
-    ignore_changes = [password]
+    ignore_changes = [password, engine_version]
     
     # Don't delete the database if someone removes it from Terraform
     prevent_destroy = false  # Set to true for production
