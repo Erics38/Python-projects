@@ -106,6 +106,18 @@ resource "aws_iam_role_policy" "ecs_execution_custom_policy" {
           "ecr:GetAuthorizationToken"
         ]
         Resource = "*"  # ECR GetAuthorizationToken requires * resource
+      },
+      {
+        # CLOUDWATCH LOGS: ECS execution needs to create log groups and streams
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams"
+        ]
+        Resource = "*"
       }
     ]
   })
@@ -159,11 +171,15 @@ resource "aws_iam_role_policy" "ecs_task_custom_policy" {
         # CLOUDWATCH LOGS: Application can write custom logs
         Effect = "Allow"
         Action = [
+          "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
           "logs:DescribeLogStreams"
         ]
-        Resource = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/ecs/${var.name_prefix}:*"
+        Resource = [
+          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/ecs/${var.name_prefix}",
+          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/ecs/${var.name_prefix}:*"
+        ]
       },
       {
         # SES: Send email notifications (from your existing Lambda function)
