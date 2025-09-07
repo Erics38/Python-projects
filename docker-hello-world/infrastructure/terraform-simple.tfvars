@@ -10,6 +10,7 @@ backend_image = "httpd:latest"
 container_cpu = 256
 container_memory = 512
 desired_count = 1
+container_port = 80
 
 # Minimal database
 instance_class = "db.t3.micro"
