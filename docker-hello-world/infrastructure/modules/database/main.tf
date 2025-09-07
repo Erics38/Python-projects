@@ -65,7 +65,7 @@ resource "aws_db_instance" "main" {
   
   # ENGINE CONFIGURATION
   engine         = "postgres"
-  engine_version = "15.7"  # Always specify exact version for reproducibility
+  engine_version = "15.12"  # Updated to current version
   instance_class = var.instance_class  # Size of the database server (CPU/RAM)
   
   # STORAGE CONFIGURATION
