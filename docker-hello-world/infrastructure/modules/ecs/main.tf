@@ -129,15 +129,14 @@ resource "aws_ecs_task_definition" "frontend" {
       #   }
       # ]
       
-      # HEALTH CHECK (optional)
-      # ECS can check if your container is healthy beyond just "running"
-      healthCheck = {
-        command     = ["CMD-SHELL", "curl -f http://localhost/ || exit 1"]
-        interval    = 30    # Seconds between checks
-        timeout     = 5     # Seconds to wait for response
-        retries     = 3     # Number of failures before marking unhealthy
-        startPeriod = 60    # Grace period before first check
-      }
+      # HEALTH CHECK DISABLED - nginx:alpine doesn't have curl
+      # healthCheck = {
+      #   command     = ["CMD-SHELL", "curl -f http://localhost/ || exit 1"]
+      #   interval    = 30
+      #   timeout     = 5
+      #   retries     = 3
+      #   startPeriod = 60
+      # }
       
       # STARTUP DEPENDENCY (if you had multiple containers)
       # dependsOn = [
@@ -231,14 +230,14 @@ resource "aws_ecs_task_definition" "backend" {
         }
       ]
       
-      # BACKEND HEALTH CHECK
-      healthCheck = {
-        command     = ["CMD-SHELL", "curl -f http://localhost:${var.container_port}/health || exit 1"]
-        interval    = 30
-        timeout     = 5
-        retries     = 3
-        startPeriod = 90  # Backend needs more time to start (database connections)
-      }
+      # BACKEND HEALTH CHECK DISABLED - httpd:alpine doesn't have curl
+      # healthCheck = {
+      #   command     = ["CMD-SHELL", "curl -f http://localhost:${var.container_port}/health || exit 1"]
+      #   interval    = 30
+      #   timeout     = 5
+      #   retries     = 3
+      #   startPeriod = 90
+      # }
     }
   ])
   
