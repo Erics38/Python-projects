@@ -84,9 +84,47 @@
     }
   }
 
-  // Health check endpoint
+  // Health check endpoints (industry standard)
   app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+    res.status(200).json({ 
+      status: 'healthy', 
+      timestamp: new Date().toISOString(),
+      service: 'guestbook-backend',
+      version: process.env.IMAGE_TAG || 'development'
+    });
+  });
+
+  // Readiness check - can handle traffic?
+  app.get('/ready', async (req, res) => {
+    try {
+      // Test database connection
+      await pool.query('SELECT 1');
+      res.status(200).json({ 
+        status: 'ready', 
+        timestamp: new Date().toISOString(),
+        database: 'connected',
+        service: 'guestbook-backend'
+      });
+    } catch (error) {
+      res.status(503).json({ 
+        status: 'not-ready', 
+        timestamp: new Date().toISOString(),
+        database: 'disconnected',
+        error: error.message 
+      });
+    }
+  });
+
+  // Liveness check - is service alive?
+  app.get('/live', (req, res) => {
+    const uptime = process.uptime();
+    res.status(200).json({ 
+      status: 'alive', 
+      timestamp: new Date().toISOString(),
+      uptime: `${Math.floor(uptime)}s`,
+      memory: process.memoryUsage(),
+      service: 'guestbook-backend'
+    });
   });
 
   // Routes

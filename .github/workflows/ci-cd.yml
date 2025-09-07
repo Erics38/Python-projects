@@ -317,6 +317,51 @@ jobs:
         echo "cluster-name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
         echo "environment=${{ github.event.inputs.deploy_environment }}" >> $GITHUB_OUTPUT
 
+    - name: Update ECS services with latest images
+      run: |
+        echo "🔄 Updating ECS services with latest container images..."
+        CLUSTER_NAME="${{ steps.terraform-outputs.outputs.cluster-name }}"
+        ENVIRONMENT="${{ steps.terraform-outputs.outputs.environment }}"
+        
+        # Update backend service
+        echo "Updating backend service..."
+        aws ecs update-service \
+          --cluster "$CLUSTER_NAME" \
+          --service "$CLUSTER_NAME-backend" \
+          --task-definition "$CLUSTER_NAME-backend" \
+          --force-new-deployment
+        
+        # Update frontend service  
+        echo "Updating frontend service..."
+        aws ecs update-service \
+          --cluster "$CLUSTER_NAME" \
+          --service "$CLUSTER_NAME-frontend" \
+          --task-definition "$CLUSTER_NAME-frontend" \
+          --force-new-deployment
+        
+        echo "✅ Container deployment triggered"
+
+    - name: Wait for deployment to stabilize
+      run: |
+        echo "⏳ Waiting for ECS services to stabilize..."
+        CLUSTER_NAME="${{ steps.terraform-outputs.outputs.cluster-name }}"
+        
+        echo "Waiting for backend service..."
+        aws ecs wait services-stable \
+          --cluster "$CLUSTER_NAME" \
+          --services "$CLUSTER_NAME-backend" \
+          --cli-read-timeout 0 \
+          --cli-connect-timeout 300 || echo "Backend service may still be deploying"
+        
+        echo "Waiting for frontend service..."
+        aws ecs wait services-stable \
+          --cluster "$CLUSTER_NAME" \
+          --services "$CLUSTER_NAME-frontend" \
+          --cli-read-timeout 0 \
+          --cli-connect-timeout 300 || echo "Frontend service may still be deploying"
+        
+        echo "✅ Services deployment completed"
+
     - name: Health Check and Troubleshooting
       run: |
         echo "🔍 Performing comprehensive health checks..."
@@ -402,9 +447,19 @@ jobs:
         FRONTEND_STATUS=$(curl -s -w "HTTP Status: %{http_code}" -m 10 "$APPLICATION_URL" 2>&1 | tail -1 || echo "Connection failed")
         echo "Frontend: $FRONTEND_STATUS" >> $GITHUB_STEP_SUMMARY
         
-        echo "Testing backend health..." >> $GITHUB_STEP_SUMMARY
-        BACKEND_STATUS=$(curl -s -w "HTTP Status: %{http_code}" -m 10 "$APPLICATION_URL/api/health" 2>&1 | tail -1 || echo "Connection failed")
-        echo "Backend: $BACKEND_STATUS" >> $GITHUB_STEP_SUMMARY
+        echo "Testing backend health endpoints..." >> $GITHUB_STEP_SUMMARY
+        BACKEND_HEALTH=$(curl -s -w "HTTP Status: %{http_code}" -m 10 "$APPLICATION_URL/health" 2>&1 | tail -1 || echo "Connection failed")
+        echo "Backend Health: $BACKEND_HEALTH" >> $GITHUB_STEP_SUMMARY
+        
+        BACKEND_READY=$(curl -s -w "HTTP Status: %{http_code}" -m 10 "$APPLICATION_URL/ready" 2>&1 | tail -1 || echo "Connection failed")
+        echo "Backend Ready: $BACKEND_READY" >> $GITHUB_STEP_SUMMARY
+        
+        BACKEND_LIVE=$(curl -s -w "HTTP Status: %{http_code}" -m 10 "$APPLICATION_URL/live" 2>&1 | tail -1 || echo "Connection failed")
+        echo "Backend Live: $BACKEND_LIVE" >> $GITHUB_STEP_SUMMARY
+        
+        # Test API functionality
+        API_TEST=$(curl -s -w "HTTP Status: %{http_code}" -m 10 "$APPLICATION_URL/api/guestbook" 2>&1 | tail -1 || echo "API connection failed")
+        echo "API Endpoint: $API_TEST" >> $GITHUB_STEP_SUMMARY
         
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
@@ -426,6 +481,74 @@ jobs:
         echo "- **Parameter Store permissions** - Backend needs SSM access" >> $GITHUB_STEP_SUMMARY
         echo "- **Database connectivity** - Backend needs SSL config for RDS" >> $GITHUB_STEP_SUMMARY
         echo "- **Target registration** - Services take 2-3 minutes to become healthy" >> $GITHUB_STEP_SUMMARY
+
+  # =============================================================================
+  # AUTOMATIC DEPLOYMENT ON PUSH TO MAIN
+  # =============================================================================
+  
+  auto-deploy:
+    name: 🚀 Auto Deploy to Demo
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: demo
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Update ECS services automatically
+      run: |
+        echo "🔄 Auto-updating ECS services with latest code changes..."
+        
+        # Update backend service
+        echo "Updating backend with latest code..."
+        aws ecs update-service \
+          --cluster "guestbook-demo-cluster" \
+          --service "guestbook-demo-backend" \
+          --force-new-deployment
+        
+        # Update frontend service  
+        echo "Updating frontend with latest code..."
+        aws ecs update-service \
+          --cluster "guestbook-demo-cluster" \
+          --service "guestbook-demo-frontend" \
+          --force-new-deployment
+        
+        echo "✅ Auto-deployment triggered"
+
+    - name: Test deployment
+      run: |
+        echo "⏳ Waiting 2 minutes for services to stabilize..."
+        sleep 120
+        
+        echo "🔍 Testing deployment..."
+        APPLICATION_URL="http://guestbook-demo-alb-1130710801.us-east-1.elb.amazonaws.com"
+        
+        echo "## 🏥 Auto-Deployment Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Test all endpoints
+        FRONTEND_TEST=$(curl -s -w "HTTP Status: %{http_code}" -m 10 "$APPLICATION_URL" 2>&1 | tail -1 || echo "Connection failed")
+        echo "Frontend: $FRONTEND_TEST" >> $GITHUB_STEP_SUMMARY
+        
+        HEALTH_TEST=$(curl -s -w "HTTP Status: %{http_code}" -m 10 "$APPLICATION_URL/health" 2>&1 | tail -1 || echo "Connection failed")
+        echo "Health: $HEALTH_TEST" >> $GITHUB_STEP_SUMMARY
+        
+        READY_TEST=$(curl -s -w "HTTP Status: %{http_code}" -m 10 "$APPLICATION_URL/ready" 2>&1 | tail -1 || echo "Connection failed")
+        echo "Ready: $READY_TEST" >> $GITHUB_STEP_SUMMARY
+        
+        LIVE_TEST=$(curl -s -w "HTTP Status: %{http_code}" -m 10 "$APPLICATION_URL/live" 2>&1 | tail -1 || echo "Connection failed")
+        echo "Live: $LIVE_TEST" >> $GITHUB_STEP_SUMMARY
+        
+        API_TEST=$(curl -s -w "HTTP Status: %{http_code}" -m 10 "$APPLICATION_URL/api/guestbook" 2>&1 | tail -1 || echo "Connection failed")
+        echo "API: $API_TEST" >> $GITHUB_STEP_SUMMARY
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🚀 **Auto-deployment completed!** Your changes are now live." >> $GITHUB_STEP_SUMMARY
 
   terraform-destroy:
     name: 🗑️ Destroy Infrastructure
